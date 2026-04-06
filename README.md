@@ -1,22 +1,120 @@
-# ☄️ coding-suisei Patch
+# ☄️ coding-suisei
 
-**Persistent coding workflow skill patch for [z.ai](https://z.ai) GLM 5.**
+**A quality-gated coding workflow skill patch for [z.ai](https://z.ai) web — GLM-5 & GLM-5-Turbo.**
 
-Quality-gated coding workflow that enforces structured development processes — understand before coding, write with constraints, verify before delivery. Deployed via `setup.sh`.
+Enhances the built-in `coding-agent` skill with mandatory quality gates, a project knowledge base, platform-specific error patterns, and a `fullstack-dev` routing wrapper — all deployed via a single `setup.sh` script.
 
 ---
 
-## What It Does
+## Target Platform
 
-1. **Deploys `coding-suisei` skill** — a quality-gated coding workflow with:
-   - 4 mandatory quality gates (Understand → Write → Verify → Error Stop)
-   - Project knowledge base (architecture, conventions, gotchas, error patterns)
-   - Workflow templates (plan template, review checklist, gates)
-   - Trigger confirmation marker (☄️) to verify skill loaded
+This patch targets the **z.ai web** interface (https://z.ai) running on the following models:
 
-2. **Patches `fullstack-dev`** with a routing wrapper:
-   - Web dev tasks (Next.js, React, UI) → original fullstack-dev flow
-   - General coding tasks (Python, algorithms, scripts, debugging) → delegates to `coding-suisei`
+| Model | Role | Notes |
+|-------|------|-------|
+| **GLM-5** | Primary | Full coding sessions, complex reasoning, architecture design |
+| **GLM-5-Turbo** | Fast tasks | Quick fixes, simple scripts, shorter interactions |
+
+### How z.ai Skills Work
+
+z.ai web uses a **hardcoded skill whitelist** (`<available_skills>`) to match user prompts to skills. When a match is found, the platform loads the corresponding `SKILL.md` file from the `skills/` directory, injecting its content into the LLM context. Key behaviors discovered through testing:
+
+1. **Trigger matching is platform-controlled** — The `<available_skills>` block is injected by the platform, and the LLM matches user prompts against skill descriptions listed there. Custom skill descriptions in `SKILL.md` on disk do **not** expand the trigger keywords.
+
+2. **Post-invoke disk load** — Once a skill is invoked (via `Skill(command='X')`), the platform loads the `SKILL.md` from `~/my-project/skills/X/SKILL.md` on disk. This is where patched content takes effect.
+
+3. **Skills directory persists** — Files in `~/my-project/skills/` survive between sessions, so patches installed via `setup.sh` remain active until explicitly removed.
+
+4. **First-prompt bootstrap** — For the `fullstack-dev` routing wrapper to become active, the first prompt in a session must match the built-in `fullstack-dev` description (keywords like Next.js, React, dashboard, UI). Once loaded, the wrapper can route subsequent prompts to `coding-suisei`.
+
+---
+
+## What This Patch Does
+
+```
+                        ┌─────────────────────────────────────────┐
+                        │          z.ai web (GLM-5 / Turbo)        │
+                        │                                         │
+                        │   User Prompt                           │
+                        │       │                                 │
+                        │       ▼                                 │
+                        │   <available_skills> matching           │
+                        │       │                                 │
+  ┌─────────────────────┼───────────────┐                         │
+  │                     ▼               │                         │
+  │        fullstack-dev (built-in)     │                         │
+  │               │                     │                         │
+  │               ▼                     │                         │
+  │      ROUTING DECISION               │                         │
+  │       ┌─────────┴─────────┐         │                         │
+  │       ▼                   ▼         │                         │
+  │   Web Dev            General Code   │                         │
+  │   (Next.js/React)    (Python/etc)   │                         │
+  │       │                   │         │                         │
+  │       ▼                   ▼         │                         │
+  │   Original          Skill('coding-  │                         │
+  │   Handler           suisei') ☄️     │                         │
+  │                     │               │                         │
+  └─────────────────────┼───────────────┘                         │
+                        │                                         │
+                        ▼                                         │
+              ┌──────────────────┐                               │
+              │   coding-suisei  │  Quality Gates + Knowledge     │
+              │   SKILL.md       │  Base + Error Patterns         │
+              │   (from disk)    │                                │
+              └──────────────────┘                               │
+                        │                                         │
+                        ▼                                         │
+                 Better Code Output                               │
+                        │                                         │
+                        └─────────────────────────────────────────┘
+```
+
+### Component 1: `coding-suisei` Skill
+
+A replacement for the built-in `coding-agent` that enforces structured quality constraints on every coding task. See the [comparison table](#default-coding-agent-vs-coding-suisei) below for the full list of differences.
+
+### Component 2: `fullstack-dev` Routing Wrapper
+
+Patches the built-in `fullstack-dev` skill's `SKILL.md` with a routing decision layer that separates web development tasks from general coding tasks, delegating the latter to `coding-suisei`.
+
+---
+
+## Default `coding-agent` vs `coding-suisei`
+
+| Aspect | Default `coding-agent` (v1.0.4) | `coding-suisei` (v3.0.0) |
+|--------|-------------------------------|--------------------------|
+| **Workflow** | Soft guidance: "Plan Before Code", "Verify Everything" | **4 mandatory quality gates** enforced as hard constraints (GATE 1→2→3→4) |
+| **Error Handling** | "Report error to user, suggest fixes, wait" | **Error Stop Protocol**: STOP immediately, diagnose root cause, fix root not symptom, re-verify |
+| **Code Quality** | No specific constraints | **Hard constraints**: no `any`, functions <50 lines, no magic numbers, no `console.log`, explicit return types |
+| **Knowledge Base** | None — no reference files for environment specifics | **4 files**: architecture (sandbox layout), conventions (naming, imports), gotchas (platform quirks), error patterns (error→fix lookup) |
+| **Workflow Templates** | Basic `planning.md` (step format) + `execution.md` (progress tracking) | **Structured templates**: plan template with risk assessment, code review checklist (structure/type/error/security/performance/cleanliness), gates with enforcement |
+| **Verification** | "Suggest running tests", "suggest taking screenshot" | **Pre-delivery checklist**: lint, type check, mental trace, test run, then review checklist with 20+ items |
+| **Trigger Confirmation** | None — no way to verify skill loaded | **☄️ mandatory first output** — user sees ☄️ and knows the skill is active |
+| **Import Order** | Not specified | **Strict enforced order**: external → internal → relative → types |
+| **Code Smell Ban** | Not specified | **Explicit ban list**: console.log, silent catch, callback hell, copy-paste logic, commented-out code, TODO without context, hardcoded strings, boolean params |
+| **Platform Awareness** | Generic — no sandbox-specific knowledge | **z.ai-specific**: Caddy gateway routing, `?XTransformPort=` pattern, single `/` route, `z-ai-web-dev-sdk` backend-only, `skills/` persistence |
+| **Error Pattern Library** | None | **Lookup table**: 15+ common errors with cause→fix mapping (Module not found, ECONNREFUSED, hydration mismatch, etc.) |
+| **Debug Flow** | "Report to user, wait" | **Structured flow**: read error → check dev.log → identify layer → match patterns → isolate |
+| **Scope Statement** | Generic "guidance, not execution" | **Honest description**: explicitly states what it is (workflow standard) and what it isn't (autonomous agent) |
+| **File Count** | 6 files (SKILL.md + 5 reference) | **12 files** (SKILL.md + 4 knowledge + 3 workflow + 4 reference) |
+
+### What `coding-agent` Does Well (Kept in coding-suisei)
+
+- User-controlled execution (no autonomous actions)
+- Preference storage in `~/code/memory.md` (only when explicitly requested)
+- Multi-task state tracking with request labels
+- Progress file output when requested
+
+### What `coding-suisei` Adds On Top
+
+- Mandatory quality gates that cannot be skipped
+- Platform-specific knowledge (z.ai sandbox constraints, gateway routing)
+- Hard coding constraints (no `any`, 50-line limit, import order)
+- Error pattern library with root cause analysis
+- Structured code review checklist (6 categories, 20+ items)
+- Trigger confirmation marker (☄️) for reliability verification
+- Plan template with risk assessment and dependency tracking
 
 ---
 
@@ -27,25 +125,25 @@ git clone https://github.com/hoshiyomiX/coding-suisei.git /tmp/cap
 cd /tmp/cap && bash setup.sh
 ```
 
-Setup is **idempotent** — safe to re-run. It will:
-- Create/overwrite `coding-suisei` skill files
+Setup is **idempotent** — safe to re-run any time. It will:
+- Create/overwrite `coding-suisei` skill files in `~/my-project/skills/coding-suisei/`
 - Patch `fullstack-dev/SKILL.md` with routing wrapper
 - Back up original `fullstack-dev/SKILL.md` as `SKILL.md.original`
-- Migrate memory from old `coding-agent` if present
+- Migrate preferences from old `coding-agent` if present
 
 ---
 
 ## Trigger Marker
 
-`☄️` — when the skill loads, the LLM **must** output this emoji as its very first response. If you see ☄️, the patch is active.
+`☄️` — when `coding-suisei` loads, the LLM **must** output this emoji as its very first response before any other content. If you see ☄️, the patch is active and quality gates are enforced.
 
 ---
 
 ## How to Invoke coding-suisei
 
-The z.ai GLM 5 platform uses hardcoded skill descriptions (`<available_skills>`) for trigger matching. `coding-suisei` is **not** in the built-in whitelist, so it relies on two paths to get invoked:
+Because `coding-suisei` is not in the z.ai built-in whitelist, it relies on two paths to get invoked:
 
-### Path 1: Direct invocation (most reliable)
+### Path 1: Direct invocation (most reliable ~90%)
 
 Use the skill name as a prefix in your prompt:
 
@@ -55,131 +153,156 @@ coding-suisei: refactor kode react component ini
 coding-suisei: debug error TypeError Cannot read properties of undefined
 ```
 
-### Path 2: Through fullstack-dev wrapper
+### Path 2: Through fullstack-dev wrapper (~70-90%)
 
-Start the session with a web dev keyword (Next.js, React, dashboard, UI), then on subsequent prompts the wrapper will route general coding tasks to coding-suisei automatically.
+Start the session with a web dev keyword to trigger `fullstack-dev`, then on subsequent prompts the routing wrapper delegates general coding tasks to `coding-suisei`:
+
+```
+# First prompt — triggers fullstack-dev (loads wrapper)
+> buat dashboard dengan Next.js
+
+# Second prompt — wrapper routes to coding-suisei
+> coding-suisei: buat fungsi helper untuk format tanggal
+```
 
 | Prompt Pattern | Invokes | Reliability |
 |---|---|---|
 | `coding-suisei: <task>` | coding-suisei directly | ~90% |
 | `gunakan coding-suisei untuk <task>` | coding-suisei directly | ~85% |
 | `☄️ <coding task>` | coding-suisei (marker match) | ~60% |
-| `buat dashboard dengan Next.js` | fullstack-dev → wrapper | ~90% |
-| `buat fungsi python merge sort` | ❌ may not trigger any skill | ~10% |
+| `buat dashboard dengan Next.js` (first prompt) | fullstack-dev → wrapper loaded | ~90% |
+| General coding (after wrapper loaded) | fullstack-dev → routes to coding-suisei | ~80% |
+| `buat fungsi python merge sort` (cold session) | ❌ may not trigger any skill | ~10% |
 
-> **Recommendation**: Always prefix with `coding-suisei:` for general coding tasks.
+> **Recommendation**: Always prefix with `coding-suisei:` for general coding tasks. The z.ai trigger matching is unreliable for ambiguous prompts without a skill name.
 
 ---
 
-## Architecture
-
-### Installed Structure
+## Installed Structure
 
 ```
 ~/my-project/skills/
-├── coding-suisei/                  # Deployed skill
-│   ├── SKILL.md                    # Core: quality gates + trigger confirmation (v3.0.0)
-│   ├── knowledge/                  # Tier 1 Knowledge Base
-│   │   ├── architecture.md         # Sandbox environment constraints & project structure
-│   │   ├── conventions.md          # Naming, imports, file patterns, code style
-│   │   ├── gotchas.md              # z.ai sandbox-specific quirks & non-obvious behaviors
-│   │   └── error-patterns.md       # Common errors → causes → fixes lookup table
-│   ├── workflow/                   # Tier 1 Workflow Templates
-│   │   ├── gates.md                # Mandatory coding constraints (no `any`, <50 lines, etc.)
-│   │   ├── plan-template.md        # Structured plan format for complex tasks
-│   │   └── review-checklist.md     # Pre-delivery verification checklist
-│   ├── memory-template.md          # Template for ~/code/memory.md
-│   ├── state.md                    # Multi-task state tracking
-│   ├── criteria.md                 # Acceptance criteria template
-│   └── _migrated_from_coding_agent # Migration marker (auto-created)
+├── coding-suisei/                      # Deployed skill
+│   ├── SKILL.md                        # Core: quality gates + trigger confirmation
+│   │                                   #   version 3.0.0
+│   ├── knowledge/                      # Tier 1 Knowledge Base
+│   │   ├── architecture.md             # z.ai sandbox constraints, directory layout,
+│   │   │                               #   service communication (Caddy gateway)
+│   │   ├── conventions.md              # Naming rules, import order, TypeScript patterns,
+│   │   │                               #   React patterns, CSS/styling rules
+│   │   ├── gotchas.md                  # Platform quirks: single route, no localhost,
+│   │   │                               #   XTransformPort, skills/ persistence, Prisma limits
+│   │   └── error-patterns.md           # 15+ error→cause→fix entries organized by category
+│   │                                   #   (runtime, build/lint, React, WebSocket)
+│   ├── workflow/                       # Tier 1 Workflow Templates
+│   │   ├── gates.md                    # Hard constraints: function limits, type rules,
+│   │   │                               #   file rules, code smell ban list, import order
+│   │   ├── plan-template.md            # Structured plan: problem, approach, files,
+│   │   │                               #   dependencies, steps, risk assessment, verification
+│   │   └── review-checklist.md         # 6-category review: structure, type safety,
+│   │                                   #   error handling, security, performance, cleanliness
+│   ├── memory-template.md              # Template for ~/code/memory.md preferences
+│   ├── state.md                        # Multi-task request tracking
+│   ├── criteria.md                     # When to save/never save user preferences
+│   └── _migrated_from_coding_agent     # Migration marker (auto-created)
 │
-└── fullstack-dev/                  # Patched with routing wrapper
-    ├── SKILL.md                    # Wrapper: routes web dev ↔ coding-suisei
-    └── SKILL.md.original           # z.ai original (backup for rollback)
-```
-
-### Routing Flow
-
-```
-User Prompt
-    │
-    ▼
-z.ai GLM 5 matches <available_skills> description
-    │
-    ├── Matches "fullstack-dev" ──► SKILL.md loaded
-    │                                   │
-    │                                   ▼
-    │                            ROUTING DECISION
-    │                                   │
-    │                    ┌──────────────┴──────────────┐
-    │                    ▼                              ▼
-    │            Web Development              General Coding
-    │            (Next.js, React)              (Python, scripts, etc.)
-    │                    │                              │
-    │                    ▼                              ▼
-    │            Fullstack Dev               Skill('coding-suisei')
-    │            Handler                     ☄️ loaded
-    │
-    └── Matches "coding-suisei" ──► SKILL.md loaded
-                                     ☄️ confirmed
-                                     Quality Gates active
+└── fullstack-dev/                      # Patched with routing wrapper
+    ├── SKILL.md                        # Wrapper: ROUTING DECISION layer that separates
+    │                                   #   web dev (original handler) from general coding
+    │                                   #   (delegates to coding-suisei via Skill())
+    └── SKILL.md.original               # z.ai platform original (backup for rollback)
 ```
 
 ---
 
 ## Quality Gates
 
-The core feature of coding-suisei. Four mandatory gates that the LLM must follow for every coding task:
+The core differentiator. Four gates that the LLM must follow **in order** for every coding task. These are not suggestions — they are hard constraints.
 
-| Gate | Name | What It Does |
-|------|------|-------------|
-| **GATE 1** | Understand Before Coding | Restate problem, identify edge cases, list affected files, create plan if complex |
-| **GATE 2** | Write with Constraints | Follow coding constraints (no `any`, <50 line functions, no magic numbers), load knowledge files |
-| **GATE 3** | Verify Before Delivery | Run linter, check types, mental trace with sample inputs, run tests |
-| **GATE 4** | Error Stop Protocol | STOP on any error, diagnose root cause, fix root not symptom, re-verify |
+### GATE 1: Understand Before Coding
 
-### Coding Constraints (from `workflow/gates.md`)
+Forces the LLM to demonstrate comprehension before writing any code. This prevents the common pattern of rushing to implement without fully understanding requirements.
 
-- No `any` type in TypeScript — use `unknown` + narrowing
-- Functions under 50 lines, single responsibility
-- No magic numbers — use named constants
-- No `console.log` in production code
-- Explicit return types on all functions
-- No circular imports
-- Strict import ordering: external → internal → relative → types
+- Restate the problem in your own words
+- Identify edge cases and constraints
+- List files that will be created or modified
+- If the task is complex (3+ files, schema change, new endpoint), create a structured plan using the plan template with risk assessment
+
+### GATE 2: Write with Constraints
+
+Applies hard coding constraints during implementation. The LLM loads context-specific knowledge files as needed.
+
+- Read `workflow/gates.md` for mandatory coding constraints
+- Read `knowledge/conventions.md` for naming, imports, and patterns
+- Read `knowledge/error-patterns.md` for environment-specific gotchas
+- Each function must have a single responsibility
+- Each function must include error handling
+
+### GATE 3: Verify Before Delivery
+
+Enforces verification before presenting code to the user. Not a "suggest testing" approach — an actual checklist.
+
+- Run `bun run lint` (or equivalent linter)
+- Check for type errors
+- Trace through the code mentally with sample inputs
+- If tests exist, run them
+- Run through the full review checklist (6 categories, 20+ items)
+
+### GATE 4: Error Stop Protocol
+
+Forces a complete stop on any error instead of the common "continue past errors and fix later" pattern.
+
+- **STOP** — do not continue past errors
+- Diagnose the root cause (read logs, check stack traces, check `dev.log`)
+- Fix the root cause, not the symptom
+- Re-verify from GATE 3
 
 ---
 
 ## Knowledge Base
 
-Four reference files the LLM loads contextually:
+Four reference files that the LLM loads contextually based on the task type. Each file targets a specific category of platform-specific knowledge.
 
-| File | Loaded When |
-|------|------------|
-| `knowledge/architecture.md` | Starting a new feature or modifying project structure |
-| `knowledge/conventions.md` | Writing any code (naming, file structure, patterns) |
-| `knowledge/gotchas.md` | Working with the z.ai sandbox environment or platform APIs |
-| `knowledge/error-patterns.md` | Debugging errors or unexpected behavior |
+### `knowledge/architecture.md`
 
-### Error Patterns Sample (from `knowledge/error-patterns.md`)
+Covers the z.ai sandbox environment: directory layout, service communication via Caddy gateway, single-port constraint, and key facts (Bun runtime, Next.js 16, TypeScript 5 strict).
 
-| Error | Common Cause | Fix |
-|-------|-------------|-----|
-| `Module not found` | Package not installed | `bun add <package>` |
-| `Port 3000 already in use` | Previous dev server running | `lsof -ti:3000 \| xargs kill` |
-| `ECONNREFUSED` | Using absolute URL | Change to relative: `/api/...?XTransformPort=...` |
-| `PrismaClient not generated` | Schema changed but not pushed | `bun run db:push` |
-| `Too many re-renders` | setState in render body | Move to useEffect or event handler |
+### `knowledge/conventions.md`
+
+Defines naming rules (PascalCase components, camelCase utilities, UPPER_SNAKE constants), strict import order, TypeScript patterns (interfaces vs types, `unknown` over `any`), React patterns (`use client`/`use server`, state management), and styling rules.
+
+### `knowledge/gotchas.md`
+
+Documents non-obvious platform behaviors: `localhost` not accessible to users, `bun run build` not supported, `?XTransformPort=` requirement for cross-service communication, single `/` route limitation, `z-ai-web-dev-sdk` backend-only, `skills/` directory persistence between sessions.
+
+### `knowledge/error-patterns.md`
+
+A lookup table of 15+ common errors organized by category (runtime, build/lint, React, WebSocket) with cause and fix for each. Includes a structured debug flow: read error → check dev.log → identify layer → match pattern → isolate.
+
+---
+
+## Error Patterns Sample
+
+| Error | Category | Cause | Fix |
+|-------|----------|-------|-----|
+| `Module not found` | Runtime | Package not installed | `bun add <package>` |
+| `Port 3000 already in use` | Runtime | Previous dev server running | `lsof -ti:3000 \| xargs kill` |
+| `ECONNREFUSED` | Runtime | Using absolute URL | Use relative: `/api/...?XTransformPort=...` |
+| `XTransformPort` timeout | Runtime | Wrong port or service down | Check service running, verify port |
+| `Type 'X' not assignable` | Build/Lint | Missing type annotation | Add explicit return type, use Zod |
+| `Too many re-renders` | React | setState in render body | Move to useEffect or handler |
+| `Hydration mismatch` | React | Server/client render diff | Move dynamic content to `'use client'` |
+| `socket.io connection failed` | WebSocket | Using direct URL | Use `io('/?XTransformPort=<port>')` |
 
 ---
 
 ## What This Is (Honest)
 
-This is a **coding workflow standard** — a set of quality constraints injected into the LLM context when the skill is invoked. It is not an autonomous agent. It cannot execute code, make independent decisions, or persist memory on its own.
+This is a **coding workflow standard** — a set of quality constraints injected into the LLM context when the skill is invoked. It is not an autonomous agent, not a code executor, and not a persistent runtime. It is a text file (`SKILL.md`) that tells the LLM how to behave when writing code.
 
-**What it DOES**: forces the LLM to follow structured quality gates, load project knowledge, and avoid common coding mistakes.
+**What it DOES**: forces the LLM to follow structured quality gates, load project-specific knowledge, avoid common coding mistakes, and verify code before delivery.
 
-**What it does NOT**: execute code autonomously, access external services, modify its own files, or take action without user awareness.
+**What it does NOT**: execute code autonomously, access external services, modify its own files, make independent decisions, or take action without user awareness.
 
 ---
 
@@ -187,9 +310,9 @@ This is a **coding workflow standard** — a set of quality constraints injected
 
 | Version | Changes |
 |---------|---------|
-| **v3.0.0** | Renamed `coding-agent` → `coding-suisei`, added Tier 1 upgrades (Quality Gates, Knowledge Base, Error Pattern Library, Workflow Templates), changed trigger marker to ☄️ |
-| v2.2 | Fixed repo structure (independent git), removed bootstrap `Invoke Skill()` instruction from setup.sh |
-| v2.0 | Initial fullstack-dev routing wrapper + coding-agent skill |
+| **v3.0.0** | Renamed `coding-agent` → `coding-suisei`. Added Tier 1 upgrades: 4 mandatory quality gates, project knowledge base (4 files), error pattern library, workflow templates (plan + review + gates), trigger confirmation marker (☄️). Added `fullstack-dev` routing wrapper. |
+| v2.2 | Fixed repo structure (independent git), removed bootstrap `Invoke Skill()` instruction from setup.sh (was triggering LLM refusal). |
+| v2.0 | Initial `fullstack-dev` routing wrapper + `coding-agent` skill patch. |
 
 ---
 
@@ -207,13 +330,14 @@ rm -rf ~/my-project/skills/coding-suisei
 
 ## Troubleshooting
 
-| Problem | Solution |
-|---------|---------|
-| ☄️ does not appear | Skill not invoked. Use `coding-suisei:` prefix, or start session with web dev keyword first |
-| setup.sh refused by LLM | This was fixed in v2.2 — the script no longer contains `Invoke Skill()` instructions |
-| fullstack-dev routing doesn't delegate | Ensure fullstack-dev was invoked first in the session (web dev keyword), then wrapper is active for subsequent prompts |
-| General coding prompt triggers nothing | Use `coding-suisei:` prefix. z.ai trigger matching is unreliable for ambiguous prompts |
-| `coding-agent` still appears | Run setup.sh again — it will migrate memory and create marker file |
+| Problem | Cause | Solution |
+|---------|-------|---------|
+| ☄️ does not appear | Skill not invoked by z.ai | Use `coding-suisei:` prefix, or start session with a web dev keyword to load the fullstack-dev wrapper first |
+| setup.sh refused by LLM | AI manipulation detection | Fixed in v2.2 — script no longer contains `Invoke Skill()` instructions |
+| fullstack-dev routing doesn't delegate to coding-suisei | Wrapper not loaded yet | The wrapper only activates after fullstack-dev is invoked in the current session. Start with a web dev keyword first |
+| General coding prompt triggers nothing | z.ai trigger matching is unreliable for non-whitelisted skills | Always use `coding-suisei:` prefix for guaranteed invocation |
+| `coding-agent` still appears in output | Old skill cached or wrapper not active | Run `setup.sh` again. The fullstack-dev wrapper should delegate to coding-suisei, not coding-agent |
+| Skills disappear after session | Session cleanup | This shouldn't happen — `skills/` directory persists. If it does, re-run setup.sh |
 
 ---
 
@@ -225,9 +349,16 @@ coding-suisei/
 ├── setup.sh                             # Idempotent install script (v3.0)
 └── skill/
     ├── coding-suisei/
-    │   ├── SKILL.md                     # Core skill definition
-    │   ├── knowledge/                   # 4 knowledge files
-    │   ├── workflow/                    # 3 workflow templates
+    │   ├── SKILL.md                     # Core skill definition (quality gates + trigger)
+    │   ├── knowledge/                   # 4 knowledge base files
+    │   │   ├── architecture.md
+    │   │   ├── conventions.md
+    │   │   ├── gotchas.md
+    │   │   └── error-patterns.md
+    │   ├── workflow/                    # 3 workflow template files
+    │   │   ├── gates.md
+    │   │   ├── plan-template.md
+    │   │   └── review-checklist.md
     │   ├── memory-template.md
     │   ├── state.md
     │   └── criteria.md
