@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 # ============================================================
-#  stellar-coding-agent patch v4.0.1 — phase state machine + fullstack-dev wrapper
+#  stellar-coding-agent install v4.1.0 — phase state machine
 #
 #  What this does:
 #    1. Deploys stellar-coding-agent skill (phase state machine workflow)
-#    2. Patches fullstack-dev SKILL.md with routing wrapper
-#       - Web dev tasks -> original fullstack-dev flow
-#       - General coding -> delegates to stellar-coding-agent
-#    3. Cleans up deprecated files from previous versions
+#    2. Cleans up deprecated files from previous versions
+#    3. Restores fullstack-dev to original (removes old wrapper)
 #
 #  Usage:
 #    git clone https://github.com/hoshiyomiX/stellar-coding-agent.git /tmp/cap
 #    cd /tmp/cap && bash setup.sh
+#
+#  Invoke:
+#    Skill(command="stellar-coding-agent")
 #
 #  Trigger marker: ☄️
 # ============================================================
@@ -38,7 +39,7 @@ fail()  { echo -e "${RED}[FAIL]${NC}  $*"; }
 
 echo ""
 echo "============================================"
-echo "  stellar-coding-agent patch v4.0.1"
+echo "  stellar-coding-agent v4.1.0"
 echo "  Trigger marker: ☄️"
 echo "============================================"
 echo ""
@@ -163,30 +164,18 @@ for deprecated in criteria.md state.md _migrated_from_coding_suisei; do
 done
 
 # ============================================================
-# PART 3: Patch fullstack-dev with routing wrapper
+# PART 3: Restore fullstack-dev to original (remove old wrapper)
 # ============================================================
 echo ""
-info "=== PART 3: Patch fullstack-dev wrapper ==="
+info "=== PART 3: Restore fullstack-dev ==="
 echo ""
 
-if [ ! -d "${FULLSTACK_DIR}" ]; then
-    fail "fullstack-dev directory not found at ${FULLSTACK_DIR}"
-    ERRORS=$((ERRORS + 1))
+if [ -f "${FULLSTACK_DIR}/SKILL.md.original" ]; then
+    cp "${FULLSTACK_DIR}/SKILL.md.original" "${FULLSTACK_DIR}/SKILL.md"
+    rm -f "${FULLSTACK_DIR}/SKILL.md.original"
+    ok "fullstack-dev restored to original (wrapper removed)"
 else
-    if [ ! -f "${FULLSTACK_DIR}/SKILL.md.original" ]; then
-        cp "${FULLSTACK_DIR}/SKILL.md" "${FULLSTACK_DIR}/SKILL.md.original"
-        ok "Original SKILL.md backed up"
-    else
-        ok "Backup already exists"
-    fi
-
-    if [ -f "${SOURCE_DIR}/fullstack-dev-SKILL.md" ]; then
-        cp "${SOURCE_DIR}/fullstack-dev-SKILL.md" "${FULLSTACK_DIR}/SKILL.md"
-        ok "Wrapper SKILL.md deployed"
-    else
-        fail "Wrapper file not found"
-        ERRORS=$((ERRORS + 1))
-    fi
+    ok "fullstack-dev not patched (no wrapper to remove)"
 fi
 
 # ============================================================
@@ -219,7 +208,6 @@ echo ""
 info "=== PART 5: Verification ==="
 echo ""
 
-# Check stellar-coding-agent
 if [ -f "${STELLAR_DIR}/SKILL.md" ]; then
     if grep -q "Phase State Machine" "${STELLAR_DIR}/SKILL.md"; then
         ok "stellar-coding-agent: Phase state machine present"
@@ -235,7 +223,6 @@ if [ -f "${STELLAR_DIR}/SKILL.md" ]; then
         ERRORS=$((ERRORS + 1))
     fi
 
-    # Verify v4.0.1 file structure
     for f in \
         procedure/phases.md \
         procedure/templates/problem-spec.md \
@@ -258,7 +245,6 @@ if [ -f "${STELLAR_DIR}/SKILL.md" ]; then
         fi
     done
 
-    # Verify old files are removed
     for f in workflow/gates.md workflow/plan-template.md workflow/review-checklist.md knowledge/gotchas.md; do
         if [ -f "${STELLAR_DIR}/${f}" ]; then
             fail "${f} should have been removed"
@@ -272,48 +258,20 @@ else
     ERRORS=$((ERRORS + 1))
 fi
 
-# Check fullstack-dev wrapper
-if [ -f "${FULLSTACK_DIR}/SKILL.md" ]; then
-    if grep -q "ROUTING DECISION" "${FULLSTACK_DIR}/SKILL.md"; then
-        ok "fullstack-dev: Routing wrapper present"
-    else
-        fail "fullstack-dev: Routing wrapper MISSING"
-        ERRORS=$((ERRORS + 1))
-    fi
-
-    if grep -q "stellar-coding-agent" "${FULLSTACK_DIR}/SKILL.md"; then
-        ok "fullstack-dev: stellar-coding-agent delegation configured"
-    else
-        fail "fullstack-dev: stellar-coding-agent delegation MISSING"
-        ERRORS=$((ERRORS + 1))
-    fi
-
-    if grep -q "☄️" "${FULLSTACK_DIR}/SKILL.md"; then
-        ok "fullstack-dev: ☄️ marker present"
-    else
-        fail "fullstack-dev: ☄️ marker MISSING"
-        ERRORS=$((ERRORS + 1))
-    fi
-else
-    fail "fullstack-dev: SKILL.md not found"
-    ERRORS=$((ERRORS + 1))
-fi
-
 # ============================================================
 # Summary
 # ============================================================
 echo ""
 echo "============================================"
 if [ $ERRORS -eq 0 ]; then
-    echo -e "${GREEN}  ☄️ Patch v4.0.1 installed!${NC}"
+    echo -e "${GREEN}  ☄️ stellar-coding-agent v4.1.0 installed!${NC}"
     echo ""
     echo "  • stellar-coding-agent -> skills/stellar-coding-agent/"
     echo "    Phase state machine + artifact templates + knowledge base"
-    echo "  • fullstack-dev wrapper -> skills/fullstack-dev/"
-    echo "  Rollback: cp ${FULLSTACK_DIR}/SKILL.md.original ${FULLSTACK_DIR}/SKILL.md"
+    echo "  • Invoke with: Skill(command=\"stellar-coding-agent\")"
     echo "============================================"
 else
-    echo -e "${RED}  Patch completed with ${ERRORS} error(s)${NC}"
+    echo -e "${RED}  Install completed with ${ERRORS} error(s)${NC}"
     echo "  Review errors above."
     echo "============================================"
     exit 1

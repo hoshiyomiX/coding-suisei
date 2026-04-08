@@ -1,6 +1,17 @@
 # Changelog
 
-## [4.0.1] — 2026-04-07
+## [4.1.0] — 2026-04-08
+
+### Changed
+- Removed fullstack-dev routing wrapper (no longer needed — stellar-coding-agent can be invoked directly via `Skill(command="stellar-coding-agent")`)
+- setup.sh no longer patches fullstack-dev; instead restores it to original if a wrapper from a previous version exists
+- setup.sh version bumped to v4.1.0
+- Removed `fullstack-dev-SKILL.md` from repository
+
+### Why
+The platform recognizes `stellar-coding-agent` as a valid skill in `<available_skills>`, making direct invocation reliable. The wrapper caused problems because the platform overwrites `fullstack-dev/SKILL.md` on invoke, silently destroying the routing bridge.
+
+## [4.0.1] — 2026-04-08
 
 ### Fixed
 - 3 broken references in `procedure/phases.md` pointing to deleted `workflow/` files — now point to correct v4.0 locations

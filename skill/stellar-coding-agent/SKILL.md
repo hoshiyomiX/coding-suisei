@@ -1,6 +1,6 @@
 ---
 name: stellar-coding-agent
-version: 4.0.1
+version: 4.1.0
 description: "Deterministic coding workflow with phase state machine, artifact templates, and structured verification."
 ---
 
