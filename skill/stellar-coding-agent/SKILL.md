@@ -1,68 +1,43 @@
 ---
 name: stellar-coding-agent
-version: 4.6.0
+version: 5.0.0
 description: "Deterministic coding workflow with phase state machine, artifact templates, and structured verification."
 ---
 <!-- VERSION SYNC: on bump, update (1) frontmatter above, (2) activation banner below, (3) setup.sh header -->
 
-## Purpose
-
-This framework ensures consistent, high-quality code output by structuring the development workflow as a phase state machine with mandatory artifacts at each phase transition. Every coding task passes through defined phases — specification, planning, implementation, verification — producing traceable artifacts that prevent requirement drift and ensure completeness before delivery.
-
 ## Activation
 
-When this skill is loaded, output the following banner exactly as written. Do not modify, paraphrase, or add extra text before or after it.
-
 ```
-☄️ STELLAR · v4.6.0 · ACTIVE
-   Phase State Machine loaded — 6 phases · 4 artifact templates · ready for input
+☄️ STELLAR · v5.0.0 · ACTIVE
+   Phase State Machine · Traceability IDs · Artifact Templates · SSV
 ```
 
-**After printing the banner, this framework is active.** Every task received from this point MUST produce a QA Attestation at completion. This applies to all tasks — coding tasks go through the full phase machine (SPECIFY → PLAN → IMPLEMENT → VERIFY → DELIVER), and non-coding tasks (conversation, questions, feedback) mark phases as N/A but still output the attestation block.
-- Do not skip phases — each phase must produce its artifact before advancing
-- Do not produce informal code without the specification, plan, and verification artifacts
-- Do not omit the QA Attestation — it is required after every task, coding or not
+This framework structures coding work as a phase machine. It provides templates and traceability tools — use them when they help, abbreviate when they don't. The phases exist because skipping straight to code is how most bugs happen, not because every task needs a formal spec.
 
-## Coexistence with fullstack-dev
+## Limitations
 
-fullstack-dev is a platform-provided skill that persists across sessions (injected at the system prompt level). It provides technology-specific expertise: Next.js patterns, UI conventions, SDK usage, project structure, and deployment rules. This framework provides process governance: phase state machine, artifact traceability, structured verification, and QA attestation. These are orthogonal concerns — one governs *what* to build with, the other governs *how* to work.
-
-**When fullstack-dev is active** (present in the system prompt or previously invoked in this session):
-
-- SPECIFY, PLAN, VERIFY, DELIVER phases operate normally — they are process-level and technology-agnostic
-- IMPLEMENT phase defers technology-specific decisions to fullstack-dev:
-  - Tech stack, UI component selection, project structure, routing patterns
-  - `'use client'` / `'use server'` directive placement
-  - Styling conventions, responsive design, animation choices
-  - SDK usage patterns, API route structure, database schema design
-- Error Recovery git rules remain in effect — this framework's rules are stricter and override defaults
-- QA Attestation remains mandatory — it evaluates process compliance, not technology correctness
-
-**When fullstack-dev is NOT active**, this framework applies its own `constraints/` and `knowledge/` files for technical guidance. All rules in "Implementation Rules" apply directly.
-
-**Both modes produce the same artifacts.** The difference is only in which knowledge source informs the IMPLEMENT phase — coexistence mode leverages fullstack-dev's deeper Next.js expertise; standalone mode uses this framework's general-purpose constraints.
+This framework is text in a skill file. It cannot guarantee compliance, force behavior, or persist across sessions. The LLM reading this may follow it closely, loosely, or not at all depending on context, attention, and task complexity. The QA Attestation is self-graded — useful as a confidence signal, not independent verification. The user is the final judge of quality.
 
 ## Phase State Machine
 
 ```
-  IDLE ──► SPECIFY ──► PLAN ──► IMPLEMENT ──► VERIFY ──► DELIVER
-              ▲                                         │
-              │                                         │
-              └──────────────── Error Recovery ◄────────┘
+IDLE → SPECIFY → PLAN → IMPLEMENT → VERIFY → DELIVER
+  ↑                                        │
+  └──── Error Recovery ◄───────────────────┘
 ```
 
-**Every phase is mandatory.** Each phase produces a defined artifact before advancing. Do not skip, merge silently, or bypass phases. On error, the workflow returns to VERIFY after recovery.
+On error: stop, diagnose, fix, return to VERIFY.
 
-| Phase      | Description |
-|------------|-------------|
-| IDLE       | Waiting for task input |
-| SPECIFY    | Restate the problem, identify constraints and edge cases, list affected files |
-| PLAN       | Create implementation plan with Traceability IDs mapping requirements to code locations |
-| IMPLEMENT  | Write code, referencing Traceability IDs from the plan |
-| VERIFY     | Run linters, trace edge cases, confirm all Traceability IDs are satisfied |
-| DELIVER    | Present completed code with QA attestation |
+| Phase | Purpose |
+|-------|---------|
+| IDLE | Receive task, classify complexity |
+| SPECIFY | Restate problem, identify constraints and edge cases, list affected files |
+| PLAN | Create implementation steps with Traceability IDs |
+| IMPLEMENT | Write code, reference Traceability IDs |
+| VERIFY | Run checks, trace edge cases, confirm Traceability IDs satisfied |
+| DELIVER | Present results with attestation |
 
-Full phase definitions are in `procedure/phases.md`.
+Phase definitions, entry/exit criteria, and transition rules are in `procedure/phases.md`.
 
 ## Phase References
 
@@ -74,108 +49,47 @@ Full phase definitions are in `procedure/phases.md`.
 | VERIFY | `procedure/templates/verification-report.md` | `knowledge/error-patterns.md` |
 | Error Recovery | `procedure/templates/incident-report.md` | `procedure/decision-trees/error-resolution.md` |
 
-## Complexity Tiers
-
-| Tier | Condition | Workflow |
-|------|-----------|----------|
-| Simple | Single file, no schema change, no new endpoint | Combine SPECIFY+PLAN into one output, skip formal templates, but still produce all required fields |
-| Standard | 2–4 files, or schema change, or new endpoint | Full framework with all templates |
-| Complex | 5+ files, architectural change, multiple services | Full framework + risk assessment + incremental delivery |
-
-## Implementation Rules
-
-While writing code:
-
-- Each code block must reference its Traceability ID from the implementation plan
-- Follow constraints from `constraints/code-standards.md` and `constraints/type-safety.md`
-- When fullstack-dev is active, defer technology-specific decisions (directives, SDK usage, component selection) to it — see "Coexistence with fullstack-dev" above
-- When fullstack-dev is NOT active, apply general rules: `'use client'` / `'use server'` directives correctly, SDK (`z-ai-web-dev-sdk`) in backend only
-
 ## Source State Verification (SSV)
 
-Before performing any analysis, audit, or verification task on a git repository, the agent MUST execute Source State Verification:
+Before analyzing or auditing a git repository, verify data freshness:
 
-1. Run `git fetch` to synchronize remote references.
-2. Compare local HEAD against the relevant remote branch (`origin/<branch>`).
-3. If local is behind remote, run `git pull` (or `git checkout <branch>` after fetch) to sync.
-4. If the task references a specific commit, verify that commit exists in the current history (`git log --oneline | grep <commit-sha>`).
-5. Only after SSV passes may the analysis/audit proceed.
+1. `git fetch` to sync remote references
+2. Compare local HEAD against `origin/<branch>`
+3. If behind, `git pull` or `git checkout <branch>` after fetch
+4. If referencing a specific commit, verify it exists in history
+5. Only proceed after SSV passes
 
-SSV is mandatory when:
-- The task follows a cross-session boundary (context compression)
-- The task involves verifying the state of code, commits, or branch history
-- The task references specific commits, branches, or git operations from a previous session
-- Any previous session involved git push, commit, or branch operations
-
-SSV may be skipped when:
-- The agent is the sole actor and no git operations occurred in the session
-- The task is purely creative (creating new files with no reference to existing code)
-- The user explicitly states the current local state is correct
-
-## Verification
-
-Before delivery, complete the verification report (`procedure/templates/verification-report.md`):
-
-- Run linter appropriate to the language
-- Verify all Traceability IDs are implemented
-- Verify all edge cases from problem specification
-- Trace through code mentally with sample inputs
-- For analysis/audit tasks: verify source data matches authoritative source (see SSV above)
+SSV is required after cross-session boundaries or when previous sessions involved git operations. Skip SSV for purely creative tasks with no git involvement.
 
 ## Error Recovery
 
-On any error:
-
 1. **Stop** — do not continue past errors
-2. Complete incident report (`procedure/templates/incident-report.md`)
-3. Ask the user before any recovery action with side effects (git changes, file deletions, destructive operations)
+2. Document the error (incident report template)
+3. Ask the user before any action with side effects (git changes, file deletions, destructive operations)
 4. Fix root cause, not symptom
-5. Return to VERIFY phase and complete verification report
+5. Return to VERIFY and re-verify
 
-**Git operation rules** (mandatory — overrides general error recovery):
+Git rules (overrides defaults):
+- `git fetch` and inspect before `git pull` — if remote diverged, stop and ask
+- No `git rebase`, `git reset`, `git push --force`, or `git merge` without explicit user instruction
+- If git is blocked by infrastructure, stop all git operations and inform the user
 
-- Never run `git pull` without first running `git fetch` and inspecting the diff. If remote has diverged, stop and ask the user.
-- Never run `git rebase`, `git reset`, `git push --force`, or `git merge` without explicit user instruction.
-- If any git command is blocked by infrastructure, stop all git operations and inform the user. Do not attempt alternative escalation commands.
-- See `procedure/decision-trees/error-resolution.md` (Git / Version Control section) for the full decision tree.
+Full decision tree: `procedure/decision-trees/error-resolution.md`.
 
-## QA Attestation
+## Process Compliance Report
 
-After completing any task (coding or non-coding), append this compliance report. The attestation block is mandatory — it is the proof that the framework was followed.
-
-> **Honesty note**: This attestation is self-graded — the same LLM that writes the code also evaluates it. The evidence requirement and defect counter make fabrication harder, but they cannot guarantee independence. Treat the attestation as a confidence signal, not a guarantee. The user is the final judge of quality.
+After completing a task, output this block. Phases not applicable to the task are marked N/A.
 
 ```
-☄️ QA Attestation
-├─ SPECIFY     : PASS
-├─ PLAN        : PASS
-├─ IMPLEMENT   : PASS
-├─ VERIFY      : PASS
-└─ OUTCOME     : PASS
+☄️ PCR
+├─ SPECIFY     : PASS / N/A
+├─ PLAN        : PASS / N/A
+├─ IMPLEMENT   : PASS / N/A
+├─ VERIFY      : PASS / N/A
+└─ OUTCOME     : PASS / FAIL
 
-Evidence: [must cite concrete results from verification report]
+Evidence: [concrete results — e.g. "lint 0 errors, 4/4 traceability verified"]
 Defects found and fixed: [n]
 ```
 
-**Evidence requirement**: The evidence line must contain specific counts from the verification report — for example `lint 0 errors, tsc 0 errors, 4/4 traceability verified, 3/3 edge cases confirmed`. Writing "looks good" or "all checks passed" without citing numbers is not valid evidence.
-
-**Evidence tiers**:
-- Code-creation tasks: `lint 0 errors, tsc 0 errors, 4/4 traceability verified`
-- Code-analysis/audit tasks: `source state verified (<branch> @ <sha> matches origin), N files analyzed, M findings traced to line numbers`
-- If evidence for an analysis/audit task does not include source state verification, the attestation is incomplete and OUTCOME must be FAIL.
-
-**Defects found**: If bugs were found during VERIFY and fixed, this number must reflect the actual count. A claim of 0 defects means the implementation was correct on the first attempt.
-
-**Status values**: `PASS` (completed with evidence), `FAIL` (failed or incomplete), `N/A` (not applicable for this task).
-
-**Delivery gate**: If OUTCOME is FAIL, do not deliver. Return to the appropriate phase, fix the issue, and re-verify. Process phases (SPECIFY/PLAN/IMPLEMENT/VERIFY) may all be PASS while OUTCOME is FAIL — this means the process was followed but the code still has problems.
-
-## Scope
-
-When using this framework to execute a coding task, the agent operates within the user's project directory and does not:
-
-- Execute code automatically
-- Access files outside the project directory
-- Modify its own skill files (framework maintenance is a separate task, not a coding task)
-- Take destructive action without user awareness
-- Delegate to sub-agents without user request
+Self-graded. The evidence requirement and defect counter make fabrication harder but cannot guarantee independence. A claim of 0 defects means first-attempt correctness. If OUTCOME is FAIL, do not deliver — return to the appropriate phase.

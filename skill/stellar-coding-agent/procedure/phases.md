@@ -1,214 +1,153 @@
 # Phase State Machine
 
-This framework uses a phase state machine to govern every coding task. Each phase produces a concrete artifact that the next phase consumes, forming an artifact chain that enforces consistency. Skipping a phase means the next phase has no input to work from, which makes the gap visible and correctable.
+Each phase produces a concrete artifact that the next phase consumes. Skipping a phase means the next phase has no input to work from, which makes the gap visible and correctable.
 
 ## State Diagram
 
 ```
 IDLE → SPECIFY → PLAN → IMPLEMENT → VERIFY → DELIVER
-              ↑                              │
-              └────── (on error) ────────────┘
+  ↑                                        │
+  └──── Error Recovery ◄───────────────────┘
 ```
 
-The diagram shows one error-return path: any phase that encounters an error documents it and returns to SPECIFY. In practice, the return target depends on severity — see the error resolution decision tree at `decision-trees/error-resolution.md`.
+On error: stop work, document the error, fix the root cause, return to VERIFY. If the error reveals a specification gap, return to SPECIFY instead.
 
 ---
 
 ## Phase 1: IDLE
 
-**Purpose**: Receive the user's request and determine whether it warrants a full workflow execution.
+**Purpose**: Receive the user's request and classify task complexity.
 
-**Entry criteria**: No active task. The agent is waiting for input.
+**Actions**:
+1. Receive and acknowledge the request.
+2. Classify complexity:
+   - **Simple**: Single file, no schema change, no new dependencies.
+   - **Standard**: Multiple files or a schema change.
+   - **Complex**: Architectural changes, multi-service, or high risk.
+3. Check `memory.md` in this skill directory for user preferences, if it exists.
+4. If the task involves a git repository and the session was continued from a previous conversation (context compression boundary), flag the repository as "state-uncertain" and require Source State Verification in SPECIFY.
+5. Transition to SPECIFY.
 
-**Required actions**:
-1. Receive and acknowledge the user's request.
-2. Classify the task complexity:
-   - **Simple**: Single file, no schema change, no new dependencies, no architectural impact.
-   - **Standard**: Multiple files or a schema change, but within existing patterns.
-   - **Complex**: New endpoints, architectural changes, multi-service coordination, or high risk.
-3. Check `/home/z/my-project/skills/stellar-coding-agent/memory.md` for user preferences, if the file exists.
-3.5. If the task involves a git repository and the session was continued from a previous conversation (context compression boundary), flag the repository as "state-uncertain" and require Source State Verification in SPECIFY before proceeding to analysis.
-4. Transition to SPECIFY.
+**Artifacts**: None. IDLE is a routing phase.
 
-**Required artifacts**: None. IDLE is a routing phase.
-
-**Exit criteria**: Task complexity is classified and relevant context (user preferences) is loaded.
-
-**Transition rules**:
-- Always transitions to SPECIFY.
-
-**Complexity tier note**: Simple tasks may abbreviate SPECIFY and PLAN into a single combined output (see SPECIFY phase), but must still produce all artifact fields. The classification here determines which abbreviation is allowed.
+**Complexity tier note**: Simple tasks may abbreviate SPECIFY and PLAN into a single combined output, but must still produce all artifact fields from both templates.
 
 ---
 
 ## Phase 2: SPECIFY
 
-**Purpose**: Produce a precise problem specification that removes ambiguity and establishes shared understanding of what needs to be built.
+**Purpose**: Produce a precise problem specification that removes ambiguity.
 
-**Entry criteria**:
-- Task complexity is classified (from IDLE).
-- User preferences are loaded, if available.
-- Source state is verified (if task involves a git repository — see SSV in SKILL.md).
+**Entry criteria**: Task complexity classified, user preferences loaded, source state verified (if git repository — see SSV in SKILL.md).
 
-**Required actions**:
-1. Restate the user's request in precise technical terms.
-2. Identify all functional requirements — what the code must accomplish.
-3. Identify technical constraints — platform limits, sandbox rules, framework requirements. Reference `knowledge/architecture.md` for sandbox-specific constraints.
-4. Enumerate edge cases with handling strategies for each.
-5. List all files that will be created or modified, with the action type (create/modify) and purpose for each.
+**Actions**:
+1. Restate the request in precise technical terms.
+2. Identify functional requirements.
+3. Identify technical constraints. Reference `knowledge/architecture.md` for sandbox constraints.
+4. Enumerate edge cases with handling strategies.
+5. List all files to be created or modified with action type (create/modify).
 6. Assess risk level (LOW / MEDIUM / HIGH) with justification.
-7. Identify dependencies — external packages, services, configuration changes.
-7.5. If the task involves a git repository, perform Source State Verification (see SKILL.md): run git fetch, compare local HEAD against remote, sync if behind, record the verified state.
-8. Fill out the problem specification template and present it to the user.
+7. Identify dependencies.
+8. If git repository, perform Source State Verification (see SKILL.md) and record the verified state.
+9. Fill out the problem specification template and present to user.
 
-**Required artifacts**:
-- `procedure/templates/problem-spec.md` — the completed Problem Specification.
+**Artifact**: `procedure/templates/problem-spec.md`
 
-**Exit criteria**:
-- All fields in the problem specification template are filled.
-- The user has reviewed and confirmed the specification (or the task is simple enough that confirmation is implied).
+**Exit criteria**: All fields filled. User reviewed and confirmed (or task is simple enough that confirmation is implied).
 
-**Transition rules**:
-- On acceptance → transition to PLAN.
-- On user revision → update the specification and re-present.
-
-**Complexity tier note**:
-- **Simple tasks**: SPECIFY and PLAN may be combined into a single output. The agent produces both the problem specification and the implementation plan together, but every field from both templates must still be present. This abbreviation exists because the overhead of two separate phases is disproportionate for a small change.
-- **Standard and complex tasks**: SPECIFY and PLAN are separate phases. Present the specification, get confirmation, then proceed to PLAN.
+**Transition**: On acceptance → PLAN. On revision → update and re-present.
 
 ---
 
 ## Phase 3: PLAN
 
-**Purpose**: Design the implementation strategy and define traceable steps that map requirements to code changes.
+**Purpose**: Design implementation strategy with traceable steps.
 
-**Entry criteria**:
-- Problem specification is approved (from SPECIFY).
-- For simple tasks, the combined SPECIFY+PLAN output is approved.
+**Entry criteria**: Problem specification approved.
 
-**Required actions**:
-1. Review the problem specification and confirm all requirements are accounted for.
-2. Choose a solution approach (2-3 sentences describing the strategy).
-3. Break the implementation into discrete, ordered steps. Each step gets a Traceability ID (IMPL-001, IMPL-002, etc.).
-4. Define the verification strategy — what to check, how to check it, and what the expected outcome is.
-5. Read relevant knowledge files based on task type (see the Phase References table in SKILL.md).
-6. Fill out the implementation plan template and present it.
+**Actions**:
+1. Review the problem specification — confirm all requirements are accounted for.
+2. Choose a solution approach (2-3 sentences).
+3. Break implementation into ordered steps. Each step gets a Traceability ID (IMPL-001, IMPL-002, etc.).
+4. Define verification strategy — what to check, how, and expected outcome.
+5. Read relevant knowledge files based on task type (see Phase References in SKILL.md).
+6. Fill out the implementation plan template and present.
 
-**Required artifacts**:
-- `procedure/templates/implementation-plan.md` — the completed Implementation Plan.
+**Artifact**: `procedure/templates/implementation-plan.md`
 
-**Exit criteria**:
-- Every functional requirement from the problem specification maps to at least one implementation step.
-- Every implementation step has a Traceability ID.
-- The verification strategy covers all edge cases identified in the specification.
+**Exit criteria**: Every requirement maps to at least one step. Every step has a Traceability ID. Verification strategy covers all edge cases.
 
-**Transition rules**:
-- On acceptance → transition to IMPLEMENT.
-- On user revision → update the plan and re-present.
-
-**Complexity tier note**: For simple tasks, this phase is combined with SPECIFY (see above). The implementation plan section is included in the combined output.
+**Transition**: On acceptance → IMPLEMENT. On revision → update and re-present.
 
 ---
 
 ## Phase 4: IMPLEMENT
 
-**Purpose**: Write the code, following the plan step by step and maintaining traceability.
+**Purpose**: Write code, following the plan step by step.
 
-**Entry criteria**:
-- Implementation plan is approved (from PLAN).
-- Relevant knowledge files have been read.
+**Entry criteria**: Implementation plan approved. Relevant knowledge files read.
 
-**Required actions**:
-1. For each implementation step in the plan:
-   a. Reference the step's Traceability ID in a comment or context note.
-   b. Write the code for that step.
-   c. Ensure the code follows the constraints in `constraints/code-standards.md` and `constraints/type-safety.md`.
-   d. If the step introduces a new dependency, install it before writing code that uses it.
-2. After writing all code, do a self-review using the Review Checklist in `procedure/templates/verification-report.md`.
-3. Fix any issues found during self-review before transitioning to VERIFY.
+**Actions**:
+1. For each implementation step:
+   a. Reference the Traceability ID in a comment or context note.
+   b. Write the code.
+   c. Follow constraints from `constraints/code-standards.md` and `constraints/type-safety.md`.
+   d. If new dependency needed, install it before writing code that uses it.
+2. Self-review using the Review Checklist in the verification report template.
+3. Fix issues found during self-review before transitioning.
 
-**Required artifacts**:
-- The code itself (modified or created files as listed in the plan).
-- Inline traceability references (each code block annotated with its Traceability ID).
+**Artifacts**: The code itself. Inline traceability references (each code block annotated with its Traceability ID).
 
-**Exit criteria**:
-- All implementation steps from the plan are completed.
-- Self-review passes with no unresolved issues.
+**Exit criteria**: All steps completed. Self-review passes with no unresolved issues.
 
-**Transition rules**:
-- On completion → transition to VERIFY.
-- On error → document the error using the incident report template at `procedure/templates/incident-report.md`, then follow `procedure/decision-trees/error-resolution.md` to determine the correct recovery path.
+**Transition**: On completion → VERIFY. On error → document with incident report template, follow error-resolution decision tree.
 
 ---
 
 ## Phase 5: VERIFY
 
-**Purpose**: Confirm that the implementation satisfies all requirements through systematic testing and traceability checks.
+**Purpose**: Confirm implementation satisfies all requirements.
 
-**Entry criteria**:
-- All implementation steps are complete (from IMPLEMENT).
-- Self-review has been performed.
+**Entry criteria**: All steps complete. Self-review performed.
 
-**Required actions**:
-1. Run automated checks:
-   a. Lint the project (`bun run lint` for TypeScript/Next.js, or the appropriate linter for the language).
-   b. Check for type errors.
-   c. Run existing tests, if any.
-1b. If the task involved analyzing existing code from a git repository, verify that the analyzed files matched the remote branch state at the time of analysis. If a discrepancy is found, return to SPECIFY with the corrected state.
-2. Perform traceability verification — confirm that every Traceability ID from the plan has a corresponding implementation that can be verified.
-3. Verify each edge case identified in the problem specification:
-   a. Provide the test input.
-   b. State the expected behavior.
-   c. Confirm the actual behavior matches.
-4. Fill out the verification report template.
+**Actions**:
+1. Run automated checks: lint, type check, existing tests.
+2. If analyzing existing code from a git repository, verify analyzed files matched the remote state at time of analysis. If discrepancy found, return to SPECIFY.
+3. Traceability verification — confirm every Traceability ID has a corresponding implementation.
+4. Edge case verification — test input, expected behavior, actual behavior for each edge case from the spec.
+5. Fill out the verification report template.
 
-**Required artifacts**:
-- `procedure/templates/verification-report.md` — the completed Verification Report.
+**Artifact**: `procedure/templates/verification-report.md`
 
-**Exit criteria**:
-- All automated checks pass (or failures are documented with explanations).
-- Every Traceability ID has a verified status.
-- Every edge case from the specification has been tested and confirmed.
+**Exit criteria**: All checks pass (or failures documented). Every Traceability ID verified. Every edge case confirmed.
 
-**Transition rules**:
-- All checks pass → transition to DELIVER.
-- Any check fails → document the failure in the incident report, return to IMPLEMENT (or SPECIFY if the failure reveals a specification gap).
+**Transition**: All pass → DELIVER. Any fail → incident report, return to IMPLEMENT (or SPECIFY if specification gap).
 
 ---
 
 ## Phase 6: DELIVER
 
-**Purpose**: Present the completed work to the user with a clear summary of what was done and how it was verified.
+**Purpose**: Present completed work with summary.
 
-**Entry criteria**:
-- Verification report shows all checks passing (from VERIFY).
+**Entry criteria**: Verification report shows all checks passing.
 
-**Required actions**:
-1. Summarize what was implemented, referencing the Traceability IDs.
-2. List all files created or modified.
-3. Note any dependencies that were added.
-4. Present the verification report summary to the user.
-5. If any caveats or follow-up items exist, state them clearly.
+**Actions**:
+1. Summarize what was implemented, referencing Traceability IDs.
+2. List files created or modified.
+3. Note any dependencies added.
+4. Present verification report summary.
+5. State caveats or follow-up items.
+6. Output Process Compliance Report.
 
-**Required artifacts**: None new. DELIVER consumes the verification report and presents it to the user.
+**Artifacts**: None new. Consumes verification report.
 
-**Exit criteria**:
-- The user has received the summary and verification results.
-- No unresolved issues remain.
-
-**Transition rules**:
-- On acceptance → transition to IDLE (task complete).
-- On user revision → determine the appropriate phase to return to (typically SPECIFY if requirements changed, or IMPLEMENT if a fix is needed).
+**Transition**: On acceptance → IDLE. On revision → return to appropriate phase.
 
 ---
 
-## Error Handling Across Phases
-
-When an error occurs during any phase:
+## Error Handling
 
 1. Stop work on the current phase.
-2. Complete the incident report template (`procedure/templates/incident-report.md`).
-3. Follow the error resolution decision tree (`procedure/decision-trees/error-resolution.md`).
-4. The decision tree determines which phase to return to. The default return target is VERIFY (re-verify after a fix), but specification gaps require returning to SPECIFY.
-
-This approach ensures errors are documented, diagnosed, and resolved systematically rather than patched ad hoc.
+2. Complete incident report template (`procedure/templates/incident-report.md`).
+3. Follow error resolution decision tree (`procedure/decision-trees/error-resolution.md`).
+4. Decision tree determines return phase — default is VERIFY, but specification gaps require SPECIFY.

@@ -3,13 +3,13 @@
 ## Initial Setup
 
 ```bash
-mkdir -p ~/code
-touch ~/code/memory.md
+mkdir -p /home/z/my-project/skills/stellar-coding-agent
+touch /home/z/my-project/skills/stellar-coding-agent/memory.md
 ```
 
 ## memory.md Template
 
-Copy to `~/code/memory.md`:
+Copy to `/home/z/my-project/skills/stellar-coding-agent/memory.md`:
 
 ```markdown
 # Code Memory
@@ -35,4 +35,4 @@ Last updated: YYYY-MM-DD
 - **Only save** when user explicitly asks ("Remember I prefer X", "Always do Y")
 - **Don't save** one-off requests, project-specific requirements, or temporary preferences
 - **Ask before saving**: "Should I remember this preference?"
-- **Only modify** `~/code/memory.md` — never modify skill files
+- **Only modify** `memory.md` — never modify other skill files
