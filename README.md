@@ -122,8 +122,7 @@ stellar-coding-agent/
 │   └── memory-template.md            # Template for user preference storage
 └── skills/stellar-coding-agent/      # Platform-managed (auto-healed by boot.sh)
     └── assets/
-        ├── page.tsx                  # Custom splash page (closeable + minimizable)
-        └── boot.sh                   # Legacy bootstrap (superseded by root boot.sh)
+        └── page.tsx                  # Custom splash page (closeable + minimizable)
 ```
 
 ---

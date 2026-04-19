@@ -11,7 +11,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="${SCRIPT_DIR}/skill/stellar-coding-agent"
-INSTALL_DIR="${HOME}/my-project/skills/stellar-coding-agent"
+INSTALL_DIR="${SCRIPT_DIR}/skills/stellar-coding-agent"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'

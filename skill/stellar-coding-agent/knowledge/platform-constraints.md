@@ -63,7 +63,7 @@ Why: Caddy proxies requests to internal services based on the `XTransformPort` q
 | Path | Behavior | Why |
 |------|----------|-----|
 | `/home/z/my-project/` | Project root — always use absolute paths | Relative paths can resolve incorrectly depending on the working directory |
-| `skills/` | Files in this directory persist between sessions | This is the designated persistence layer for the sandbox |
+| `skills/` | May be wiped on session reset | Use `boot.sh` to self-heal from git-tracked `skill/`; do not rely on `skills/` for persistence |
 | `download/` | May persist, but not guaranteed | Use `skills/` when persistence is required |
 | `/tmp/` | Session-scoped — cleaned up between sessions | Temporary files are not safe for cross-session storage |
 
