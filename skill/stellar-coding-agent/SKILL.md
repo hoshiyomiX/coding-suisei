@@ -1,8 +1,7 @@
 ---
 name: stellar-coding-agent
+version: 5.1.0
 description: "Deterministic coding workflow with phase state machine, artifact templates, and structured verification."
-metadata:
-  version: 5.1.0
 ---
 <!-- VERSION SYNC: on bump, update (1) frontmatter above, (2) activation banner below, (3) setup.sh header -->
 
@@ -10,26 +9,10 @@ metadata:
 
 ```
 ☄️ STELLAR · v5.1.0 · ACTIVE
-   Phase State Machine · Traceability IDs · Artifact Templates · SSV
+   Phase State Machine · Traceability IDs · Artifact Templates · SSV · Memory
 ```
 
-This framework structures coding work as a phase machine. It provides templates and traceability tools — abbreviate when the task is simple, but never skip entirely. The phases exist because skipping straight to code is how most bugs happen, not because every task needs a formal spec.
-
-## When Active
-
-A **task** is any request that produces code, file changes, or deliverables. Conversation, questions, and feedback are not tasks.
-
-When a task begins: state which phase you're entering. When a task ends: output a PCR block (see Process Compliance Report below). For simple tasks (single file, no schema change), combine SPECIFY+PLAN into one paragraph — but still output PCR at the end.
-
-## Preview Bootstrap
-
-A custom splash page is included in `assets/page.tsx` (closeable + minimizable). To activate the preview panel each session, the dev server on port 3000 must be running. Run once:
-
-```bash
-bash boot.sh
-```
-
-This checks the remote repo for updates and pulls if available (fast-forward only, skips if local changes exist), self-heals skill files (copies git-tracked `skill/` → `skills/`), deploys the custom page to `src/app/page.tsx`, and starts the dev server via `.zscripts/dev.sh`. The platform detects port 3000 and shows the preview panel automatically. Idempotent — exits immediately if already running.
+This framework structures coding work as a phase machine. It provides templates and traceability tools — use them when they help, abbreviate when they don't. The phases exist because skipping straight to code is how most bugs happen, not because every task needs a formal spec.
 
 ## Limitations
 
@@ -95,7 +78,7 @@ Full decision tree: `procedure/decision-trees/error-resolution.md`.
 
 ## Process Compliance Report
 
-Output this block after every task (see "When Active" above). Phases not applicable to the task are marked N/A.
+After completing a task, output this block. Phases not applicable to the task are marked N/A.
 
 ```
 ☄️ PCR

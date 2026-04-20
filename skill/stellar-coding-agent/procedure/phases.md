@@ -132,14 +132,19 @@ On error: stop work, document the error, fix the root cause, return to VERIFY. I
 **Entry criteria**: Verification report shows all checks passing.
 
 **Actions**:
-1. Summarize what was implemented, referencing Traceability IDs.
-2. List files created or modified.
-3. Note any dependencies added.
-4. Present verification report summary.
-5. State caveats or follow-up items.
-6. Output Process Compliance Report.
+1. **Write session digest** to `memory.md` under the `## Session Digest` section (create memory.md with template if it does not exist). Use exactly this format — one line, no freeform:
+   ```
+   [YYYY-MM-DD HH:MM] task: <one-line description> | outcome: PASS/FAIL | files: <count> | incidents: <count>
+   ```
+   This is the first action of DELIVER, not an afterthought. It fires while attention is still on the task.
+2. Summarize what was implemented, referencing Traceability IDs.
+3. List files created or modified.
+4. Note any dependencies added.
+5. Present verification report summary.
+6. State caveats or follow-up items.
+7. Output Process Compliance Report.
 
-**Artifacts**: None new. Consumes verification report.
+**Artifacts**: None new. Consumes verification report. Writes to `memory.md` Session Digest.
 
 **Transition**: On acceptance → IDLE. On revision → return to appropriate phase.
 
@@ -151,3 +156,8 @@ On error: stop work, document the error, fix the root cause, return to VERIFY. I
 2. Complete incident report template (`procedure/templates/incident-report.md`).
 3. Follow error resolution decision tree (`procedure/decision-trees/error-resolution.md`).
 4. Decision tree determines return phase — default is VERIFY, but specification gaps require SPECIFY.
+5. **Log incident** to `memory.md` under the `## Patterns` section (create memory.md with template if it does not exist). Use exactly this format — one line, no evaluation of whether it's a "pattern" or not:
+   ```
+   [YYYY-MM-DD] error: <type from classification> | cause: <one-line root cause> | fix: <one-line fix>
+   ```
+   Every incident gets logged. No judgment call. If it's noise, it's one line. If it's reusable, it's captured.
