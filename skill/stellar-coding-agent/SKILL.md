@@ -1,6 +1,6 @@
 ---
 name: stellar-coding-agent
-version: 5.1.0
+version: 5.2.0
 description: "Deterministic coding workflow with phase state machine, artifact templates, and structured verification. Trigger this skill whenever building, implementing, fixing bugs, refactoring, or auditing code — especially multi-file changes, schema modifications, or tasks requiring traceability. Also activate on phrases like 'follow the process', 'use stellar', 'phase machine', 'structured workflow', or when the user explicitly asks for planning-before-coding discipline. For trivial single-line fixes, the framework auto-abbreviates to keep overhead minimal."
 ---
 <!-- VERSION SYNC: on bump, update (1) frontmatter above, (2) activation banner below, (3) setup.sh header -->
@@ -8,7 +8,7 @@ description: "Deterministic coding workflow with phase state machine, artifact t
 ## Activation
 
 ```
-☄️ STELLAR · v5.1.0 · ACTIVE
+☄️ STELLAR · v5.2.0 · ACTIVE
    Phase State Machine · Traceability IDs · Artifact Templates · SSV · Memory
 ```
 

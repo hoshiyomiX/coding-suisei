@@ -1,5 +1,27 @@
 # Changelog
 
+## [5.2.0] — 2026-05-10
+
+### Added
+
+- **Memory directory architecture** — replaced flat `memory.md` with a structured `memory/` directory containing evergreen files (`MEMORY.md`, `decisions.md`, `incidents.md`) and dated session logs (`YYYY-MM-DD.md`). Inspired by Memweave's design: plain Markdown files as source of truth, filename convention determines lifecycle (evergreen vs dated).
+- **Bounded memory budget** — MEMORY.md has a ~2,000 character soft budget with agent-driven curation. When exceeded, DELIVER flags it for consolidation. Inspired by Hermes's philosophy: let the LLM decide what to keep/evict rather than relying on mechanical eviction algorithms.
+- **Rich session summary** — Standard/Complex tasks now capture decisions, context, and caveats in addition to the compact task/outcome format. Preserves decision rationale across sessions for pre-compaction knowledge extraction.
+- **Complexity Tiers & PCR Format** — new section in phases.md defining Simple (compact PCR, abbreviated artifacts), Standard (full PCR), and Complex (full PCR + detailed evidence). The phase machine always runs; what changes is verbosity, not rigor.
+- **Compact PCR for Simple tasks** — single-line format `☄️ PCR [Simple] SPECIFY→DELIVER : PASS | Evidence: ... | Defects: 0` replaces the full 6-row block for trivial tasks.
+
+### Changed
+
+- **Skill description expanded** — added explicit trigger phrases ("build", "implement", "fix bugs", "refactor", "audit", "follow the process", "use stellar", "phase machine", "structured workflow") and auto-abbreviate clause for trivial fixes. Skill-creator audit score improved from 2/10 to 8/10 for triggering.
+- **DELIVER phase** — action 1 now writes to `memory/YYYY-MM-DD.md` (dated file, append-only). New action 2 checks MEMORY.md budget. Rich format for Standard/Complex captures decisions, context, caveats.
+- **Error Handling** — incident logging now writes to `memory/incidents.md` instead of a shared `memory.md` Patterns section.
+- **IDLE phase** — action 3 now reads `memory/MEMORY.md` with graceful handling when `memory/` directory doesn't exist yet.
+
+### Fixed
+
+- **boot.sh path resolution** — added `PROJECT_ROOT` detection so the repo can live as a subdirectory of `/home/z/my-project/`. All paths (page.tsx, dev.sh, database, logs) now resolve to the project root, not the repo directory.
+- **setup.sh install path** — `INSTALL_DIR` now uses `$PROJECT_ROOT/skills/` instead of repo-relative path, ensuring the skill installs to the platform's load path.
+
 ## [5.1.0] — 2026-04-19
 
 ### Added

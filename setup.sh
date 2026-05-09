@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-#  stellar-coding-agent v5.1.0
+#  stellar-coding-agent v5.2.0
 #
 #  Install:  cd /home/z/my-project/stellar-coding-agent && bash setup.sh
 #  Invoke:   Skill(command="stellar-coding-agent")
@@ -27,7 +27,7 @@ fail()  { echo -e "${RED}[FAIL]${NC}  $*"; }
 
 echo ""
 echo "============================================"
-echo "  ☄️ stellar-coding-agent v5.1.0"
+echo "  ☄️ stellar-coding-agent v5.2.0"
 echo "============================================"
 echo ""
 
@@ -61,8 +61,8 @@ if [ -f "${INSTALL_DIR}/SKILL.md" ]; then
         ERRORS=$((ERRORS + 1))
     fi
 
-    if grep -q "v5.1.0" "${INSTALL_DIR}/SKILL.md"; then
-        ok "Version 5.1.0 confirmed"
+    if grep -q "v5.2.0" "${INSTALL_DIR}/SKILL.md"; then
+        ok "Version 5.2.0 confirmed"
     else
         fail "Version mismatch"
         ERRORS=$((ERRORS + 1))
@@ -98,7 +98,7 @@ fi
 echo ""
 echo "============================================"
 if [ $ERRORS -eq 0 ]; then
-    echo -e "${GREEN}  ☄️ v5.1.0 installed!${NC}"
+    echo -e "${GREEN}  ☄️ v5.2.0 installed!${NC}"
     echo ""
     echo "  Invoke: Skill(command=\"stellar-coding-agent\")"
     echo "============================================"
