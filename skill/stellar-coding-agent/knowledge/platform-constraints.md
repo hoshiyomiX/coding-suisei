@@ -63,9 +63,24 @@ Why: Caddy proxies requests to internal services based on the `XTransformPort` q
 | Path | Behavior | Why |
 |------|----------|-----|
 | `/home/z/my-project/` | Project root — always use absolute paths | Relative paths can resolve incorrectly depending on the working directory |
+| `/home/z/my-project/stellar-coding-agent/` | Skill framework repo — has its own `.git/` | Git operations for stellar-coding-agent MUST use `git -C /home/z/my-project/stellar-coding-agent/` — never run bare `git` from parent |
 | `skills/` | May be wiped on session reset | Use `boot.sh` to self-heal from git-tracked `skill/`; do not rely on `skills/` for persistence |
 | `download/` | May persist, but not guaranteed | Use `skills/` when persistence is required |
 | `/tmp/` | Session-scoped — cleaned up between sessions | Temporary files are not safe for cross-session storage |
+
+### Git Repository Isolation
+
+`/home/z/my-project/` and `/home/z/my-project/stellar-coding-agent/` are **separate git repositories**. They must never share git operations:
+
+```
+# [REQUIRED] stellar-coding-agent git operations
+git -C /home/z/my-project/stellar-coding-agent/ <command>
+
+# [BAN] never do this — operates on the parent repo, not the skill repo
+git <command>   # from /home/z/my-project/ without -C
+```
+
+Consequences of violating this rule: the parent repo may have the same remote URL as the skill repo. A `git pull` or `git push` without `-C` will contaminate the parent's history with skill commits (or vice versa), causing rebase conflicts and commit loss. The parent repo has no remote configured as a safeguard.
 
 ---
 
