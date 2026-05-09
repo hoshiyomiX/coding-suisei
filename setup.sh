@@ -2,7 +2,7 @@
 # ============================================================
 #  stellar-coding-agent v5.1.0
 #
-#  Install:  cd ~/my-project && bash setup.sh
+#  Install:  cd /home/z/my-project/stellar-coding-agent && bash setup.sh
 #  Invoke:   Skill(command="stellar-coding-agent")
 #  Marker:   ☄️
 # ============================================================
@@ -11,7 +11,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="${SCRIPT_DIR}/skill/stellar-coding-agent"
-INSTALL_DIR="${SCRIPT_DIR}/skills/stellar-coding-agent"
+# IMPL-003: Install to project root's skills/ dir where Skill system loads from
+PROJECT_ROOT="${PROJECT_ROOT:-/home/z/my-project}"
+INSTALL_DIR="${PROJECT_ROOT}/skills/stellar-coding-agent"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'

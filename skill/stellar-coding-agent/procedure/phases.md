@@ -24,13 +24,48 @@ On error: stop work, document the error, fix the root cause, return to VERIFY. I
    - **Simple**: Single file, no schema change, no new dependencies.
    - **Standard**: Multiple files or a schema change.
    - **Complex**: Architectural changes, multi-service, or high risk.
-3. Check `memory.md` in this skill directory for user preferences, if it exists.
+3. Check `memory/MEMORY.md` for user preferences, patterns, and key decisions. If the `memory/` directory does not exist, it will be created on first DELIVER — skip this step. For tasks requiring session continuity, also check the most recent dated file in `memory/`.
 4. If the task involves a git repository and the session was continued from a previous conversation (context compression boundary), flag the repository as "state-uncertain" and require Source State Verification in SPECIFY.
 5. Transition to SPECIFY.
 
 **Artifacts**: None. IDLE is a routing phase.
 
 **Complexity tier note**: Simple tasks may abbreviate SPECIFY and PLAN into a single combined output, but must still produce all artifact fields from both templates.
+
+## Complexity Tiers & PCR Format
+
+The phase machine always runs — every task passes through all six phases. What changes between tiers is the verbosity of artifacts, not the rigor of thinking.
+
+### Simple (compact PCR)
+
+Criteria: single file, no schema change, no new dependencies, obvious approach.
+
+| Phase | Behavior |
+|-------|----------|
+| SPECIFY | Restate goal in 1-2 sentences. Do NOT output the problem-spec template. |
+| PLAN | List steps as bullet points. Do NOT output the implementation-plan template. Traceability IDs optional. |
+| IMPLEMENT | Write code. No inline Traceability ID comments required. |
+| VERIFY | Run automated checks (lint, type check). Do NOT output the verification-report template. |
+| DELIVER | Output compact PCR (see below). Still write session digest to `memory/YYYY-MM-DD.md`. |
+
+Compact PCR format (use this instead of the full block):
+
+```
+☄️ PCR [Simple]
+SPECIFY→DELIVER : PASS | Evidence: <one-line result> | Defects: 0
+```
+
+### Standard (full PCR)
+
+Criteria: multiple files or a schema change.
+
+All phases use their full templates. Traceability IDs required. Output the full PCR block from SKILL.md.
+
+### Complex (full PCR + detailed evidence)
+
+Criteria: architectural changes, multi-service, or high risk.
+
+All phases use their full templates with extra detail. Traceability IDs required. Output the full PCR block with expanded evidence.
 
 ---
 
@@ -132,19 +167,31 @@ On error: stop work, document the error, fix the root cause, return to VERIFY. I
 **Entry criteria**: Verification report shows all checks passing.
 
 **Actions**:
-1. **Write session digest** to `memory.md` under the `## Session Digest` section (create memory.md with template if it does not exist). Use exactly this format — one line, no freeform:
-   ```
-   [YYYY-MM-DD HH:MM] task: <one-line description> | outcome: PASS/FAIL | files: <count> | incidents: <count>
-   ```
-   This is the first action of DELIVER, not an afterthought. It fires while attention is still on the task.
-2. Summarize what was implemented, referencing Traceability IDs.
-3. List files created or modified.
-4. Note any dependencies added.
-5. Present verification report summary.
-6. State caveats or follow-up items.
-7. Output Process Compliance Report.
+1. **Write session digest** to `memory/YYYY-MM-DD.md` (create `memory/` directory and dated file if they do not exist). Append to the file — do not overwrite. Use the compact format for Simple tasks, rich format for Standard/Complex:
 
-**Artifacts**: None new. Consumes verification report. Writes to `memory.md` Session Digest.
+   Compact (Simple):
+   ```
+   [HH:MM] task: <one-line description> | outcome: PASS/FAIL | files: <count> | incidents: <count>
+   ```
+
+   Rich (Standard/Complex):
+   ```
+   [HH:MM] task: <one-line description> | outcome: PASS/FAIL | files: <count> | incidents: <count>
+     decisions: <key decision made and why>
+     context: <what informed the approach>
+     caveats: <things to watch for>
+   ```
+
+   This is the first action of DELIVER, not an afterthought. It fires while attention is still on the task.
+2. **Check MEMORY.md budget** — if `memory/MEMORY.md` exceeds ~2,000 characters, note in the delivery: "Memory budget warning: MEMORY.md at ~X/2000 chars. Consider consolidating entries on next session."
+3. Summarize what was implemented, referencing Traceability IDs.
+4. List files created or modified.
+5. Note any dependencies added.
+6. Present verification report summary.
+7. State caveats or follow-up items.
+8. Output Process Compliance Report — use the compact format for Simple tasks, full format for Standard/Complex (see Complexity Tiers above).
+
+**Artifacts**: None new. Consumes verification report. Writes to `memory/YYYY-MM-DD.md` Session Digest.
 
 **Transition**: On acceptance → IDLE. On revision → return to appropriate phase.
 
@@ -156,7 +203,7 @@ On error: stop work, document the error, fix the root cause, return to VERIFY. I
 2. Complete incident report template (`procedure/templates/incident-report.md`).
 3. Follow error resolution decision tree (`procedure/decision-trees/error-resolution.md`).
 4. Decision tree determines return phase — default is VERIFY, but specification gaps require SPECIFY.
-5. **Log incident** to `memory.md` under the `## Patterns` section (create memory.md with template if it does not exist). Use exactly this format — one line, no evaluation of whether it's a "pattern" or not:
+5. **Log incident** to `memory/incidents.md` (create `memory/` directory and file if they do not exist). Append to the file. Use exactly this format — one line, no evaluation of whether it's a "pattern" or not:
    ```
    [YYYY-MM-DD] error: <type from classification> | cause: <one-line root cause> | fix: <one-line fix>
    ```

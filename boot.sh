@@ -1,13 +1,24 @@
 #!/bin/bash
 # stellar-coding-agent — Session Bootstrap (git-tracked)
 # Auto-updates, self-heals skill files, and starts dev server.
-# Run once per session: cd ~/my-project && bash boot.sh
+# Run once per session: cd /home/z/my-project/stellar-coding-agent && bash boot.sh
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="$SCRIPT_DIR/skill/stellar-coding-agent"
-INSTALL_DIR="$SCRIPT_DIR/skills/stellar-coding-agent"
+
+# IMPL-002: Detect project root — repo may be a subdirectory of /home/z/my-project/
+PROJECT_ROOT="${PROJECT_ROOT:-/home/z/my-project}"
+if [ -f "$PROJECT_ROOT/package.json" ] && [ -d "$PROJECT_ROOT/src/app" ]; then
+  : # PROJECT_ROOT explicitly set or detected
+else
+  # Fallback: assume repo is inside project root (one level up)
+  PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+fi
+
+# Install skill to the project root's skills/ directory (where Skill system loads from)
+INSTALL_DIR="$PROJECT_ROOT/skills/stellar-coding-agent"
 
 # ── 0. Auto-update: pull if remote has newer skill files ──────────
 # Non-fatal: any git failure just skips the update and proceeds.
@@ -66,8 +77,9 @@ fi
 # ── 2. Deploy custom splash ──────────────────────────────────────
 # Assets are gitignored — only exist if previously bootstrapped
 SPLASH="$INSTALL_DIR/assets/page.tsx"
-TARGET="$SCRIPT_DIR/src/app/page.tsx"
-DEV_SCRIPT="$SCRIPT_DIR/.zscripts/dev.sh"
+# IMPL-002: TARGET must point to the Next.js project, not the repo dir
+TARGET="$PROJECT_ROOT/src/app/page.tsx"
+DEV_SCRIPT="$PROJECT_ROOT/.zscripts/dev.sh"
 
 if [ -f "$SPLASH" ]; then
   mkdir -p "$(dirname "$TARGET")"
@@ -84,11 +96,11 @@ fi
 if [ -f "$DEV_SCRIPT" ]; then
   echo "[boot] Starting dev server..."
   chmod +x "$DEV_SCRIPT"
-  DATABASE_URL="${DATABASE_URL:-file:${SCRIPT_DIR}/db/custom.db}"
+  DATABASE_URL="${DATABASE_URL:-file:${PROJECT_ROOT}/db/custom.db}"
   (
-    cd "$SCRIPT_DIR"
-    nohup bash "$DEV_SCRIPT" >>"$SCRIPT_DIR/.zscripts/dev.log" 2>&1 </dev/null &
-    echo "$!" >"$SCRIPT_DIR/.zscripts/dev.pid"
+    cd "$PROJECT_ROOT"
+    nohup bash "$DEV_SCRIPT" >>"$PROJECT_ROOT/.zscripts/dev.log" 2>&1 </dev/null &
+    echo "$!" >"$PROJECT_ROOT/.zscripts/dev.pid"
   )
   for i in $(seq 1 30); do
     if curl -s --connect-timeout 2 "http://localhost:3000" >/dev/null 2>&1; then
