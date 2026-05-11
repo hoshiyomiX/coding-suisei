@@ -53,7 +53,7 @@ Copy and complete the following for every task:
 |-------|----------|
 | **Request** | Quote the user's exact words. Do not paraphrase. This anchors the specification to the original intent. |
 | **Functional Requirement** | Translate the request into a precise technical statement. Use "must" language: "The system must render a list of items sorted by creation date." |
-| **Technical Constraints** | Reference `knowledge/architecture.md` for sandbox constraints. Include framework requirements (e.g., "Must use server components for data fetching"). |
+| **Technical Constraints** | Reference `knowledge/universal/architecture.md` for general constraints and `knowledge/platform/zai-sandbox.md` for sandbox-specific rules. Include framework requirements (e.g., "Must use server components for data fetching"). |
 | **Identified Edge Cases** | Think about empty inputs, missing data, concurrent operations, boundary values, and error states. Each edge case needs a concrete handling strategy, not just identification. |
 | **Affected Files** | Every file that will be created or modified must be listed. The action column uses "Create" for new files and "Modify" for existing files. |
 | **Risk Level** | LOW = single file, well-understood pattern. MEDIUM = multiple files or minor uncertainty. HIGH = schema changes, architectural impact, or significant uncertainty. Justify the rating. |

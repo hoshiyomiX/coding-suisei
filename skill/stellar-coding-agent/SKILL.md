@@ -1,14 +1,14 @@
 ---
 name: stellar-coding-agent
-version: 5.2.0
-description: "Deterministic coding workflow with phase state machine, artifact templates, and structured verification. Trigger this skill whenever building, implementing, fixing bugs, refactoring, or auditing code — especially multi-file changes, schema modifications, or tasks requiring traceability. Also activate on phrases like 'follow the process', 'use stellar', 'phase machine', 'structured workflow', or when the user explicitly asks for planning-before-coding discipline. For trivial single-line fixes, the framework auto-abbreviates to keep overhead minimal."
+version: 5.3.0
+description: "Deterministic coding workflow with phase state machine, traceability IDs, artifact templates, and structured verification."
 ---
 <!-- VERSION SYNC: on bump, update (1) frontmatter above, (2) activation banner below, (3) boot.sh header, (4) setup.sh header -->
 
 ## Activation
 
 ```
-☄️ STELLAR · v5.2.0 · ACTIVE
+☄️ STELLAR · v5.3.0 · ACTIVE
    Phase State Machine · Traceability IDs · Artifact Templates · SSV · Memory
 ```
 
@@ -39,14 +39,27 @@ On error: stop, diagnose, fix, return to VERIFY.
 
 Phase definitions, entry/exit criteria, and transition rules are in `procedure/phases.md`.
 
+## Task Type Awareness
+
+This framework is not limited to coding tasks. The phase machine adapts to the task type:
+
+| Task Type | SPECIFY | PLAN | IMPLEMENT | VERIFY |
+|-----------|---------|------|------------|--------|
+| **Coding** (web dev, bug fix, refactor) | Problem spec | Code steps + Traceability IDs | Write code | Lint, type check, tests |
+| **Document** (report, proposal, DOCX, PDF) | Content outline | Section plan + structure | Generate document | Format check, completeness |
+| **Visualization** (charts, diagrams, dashboards) | Visual requirements | Data mapping + layout | Generate chart | Visual accuracy, data integrity |
+| **Data Processing** (ETL, analysis, transform) | Data spec | Transform pipeline | Write script | Output validation, edge cases |
+
+For non-coding tasks: Traceability IDs still apply. Templates adapt — use the same structure but replace code-specific fields with task-appropriate ones.
+
 ## Phase References
 
 | Phase | Artifact Template | Knowledge Files |
 |-------|-------------------|-----------------|
-| SPECIFY | `procedure/templates/problem-spec.md` | `knowledge/architecture.md` |
-| PLAN | `procedure/templates/implementation-plan.md` | `knowledge/conventions.md` |
-| IMPLEMENT | (code output) | `constraints/code-standards.md`, `constraints/type-safety.md` |
-| VERIFY | `procedure/templates/verification-report.md` | `knowledge/error-patterns.md` |
+| SPECIFY | `procedure/templates/problem-spec.md` | `knowledge/universal/architecture.md`, `knowledge/platform/zai-sandbox.md` |
+| PLAN | `procedure/templates/implementation-plan.md` | `knowledge/universal/conventions.md` |
+| IMPLEMENT | (code/document/chart output) | `constraints/code-standards.md`, `constraints/type-safety.md` |
+| VERIFY | `procedure/templates/verification-report.md` | `knowledge/universal/error-patterns.md` |
 | Error Recovery | `procedure/templates/incident-report.md` | `procedure/decision-trees/error-resolution.md` |
 
 ## Source State Verification (SSV)
@@ -82,6 +95,7 @@ After completing a task, output this block. Phases not applicable to the task ar
 
 ```
 ☄️ PCR
+├─ Tier       : Simple / Standard / Complex
 ├─ SPECIFY     : PASS / N/A
 ├─ PLAN        : PASS / N/A
 ├─ IMPLEMENT   : PASS / N/A
@@ -93,3 +107,7 @@ Defects found and fixed: [n]
 ```
 
 Self-graded. The evidence requirement and defect counter make fabrication harder but cannot guarantee independence. A claim of 0 defects means first-attempt correctness. If OUTCOME is FAIL, do not deliver — return to the appropriate phase.
+
+## Completion Signal
+
+For web development tasks (Type 3), the DELIVER phase must call the platform's `Complete(project_type="web_dev", summary="...")` tool to finalize the project. For non-coding tasks, DELIVER presents the output file path directly.

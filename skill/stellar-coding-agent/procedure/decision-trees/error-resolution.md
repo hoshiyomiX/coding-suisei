@@ -33,12 +33,13 @@ Use the error message and context to classify the error into one of the categori
 
 | Category | Indicators | Reference |
 |----------|-----------|-----------|
-| **Compilation / Syntax** | `SyntaxError`, `Unexpected token`, `cannot find module`, build fails | `knowledge/conventions.md` (import rules, file extensions) |
-| **Type** | TypeScript error (`TSxxxx`), `Type 'X' is not assignable to type 'Y'`, type mismatch | `knowledge/conventions.md` (type constraints, `unknown` vs `any`) |
-| **Runtime** | `TypeError`, `ReferenceError`, `Cannot read properties of undefined`, function crashes | `knowledge/error-patterns.md` (runtime error patterns) |
-| **Network / Gateway** | `ECONNREFUSED`, `fetch failed`, `502 Bad Gateway`, CORS error, WebSocket failure | `knowledge/error-patterns.md` (network/gateway section), `knowledge/architecture.md` (service communication) |
-| **Database / Prisma** | Prisma error, `Unique constraint failed`, `PrismaClient not generated`, query error | `knowledge/error-patterns.md` (database section) |
+| **Compilation / Syntax** | `SyntaxError`, `Unexpected token`, `cannot find module`, build fails | `knowledge/universal/conventions.md` (import rules, file extensions) |
+| **Type** | TypeScript error (`TSxxxx`), `Type 'X' is not assignable to type 'Y'`, type mismatch | `knowledge/universal/conventions.md` (type constraints, `unknown` vs `any`) |
+| **Runtime** | `TypeError`, `ReferenceError`, `Cannot read properties of undefined`, function crashes | `knowledge/universal/error-patterns.md` (runtime error patterns) |
+| **Network / Gateway** | `ECONNREFUSED`, `fetch failed`, `502 Bad Gateway`, CORS error, WebSocket failure | `knowledge/universal/error-patterns.md` (network/gateway section), `knowledge/universal/architecture.md` (service communication), `knowledge/platform/zai-sandbox.md` (gateway routing) |
+| **Database / Prisma** | Prisma error, `Unique constraint failed`, `PrismaClient not generated`, query error | `knowledge/universal/error-patterns.md` (database section) |
 | **Git / Version Control** | `push rejected`, `fetch failed`, `merge conflict`, `diverged branches`, `non-fast-forward`, `detached HEAD` | This section (see Git diagnostic path below) |
+| **AI / SDK** | SDK invocation failure, rate limit, timeout, model error, image generation failure, `z-ai-web-dev-sdk` runtime error | See AI/SDK diagnostic path below |
 | **Other** | Error does not match any category above | Isolate minimal reproduction (see below) |
 
 ### Diagnostic Paths by Category
@@ -63,7 +64,7 @@ Use the error message and context to classify the error into one of the categori
 5. If the error is intermittent, look for race conditions or timing dependencies.
 
 **Network / Gateway:**
-1. Check if the URL uses an absolute `localhost` address — change to relative path with `?XTransformPort=`. Reference `knowledge/architecture.md` for the service communication model.
+1. Check if the URL uses an absolute `localhost` address — change to relative path with `?XTransformPort=`. Reference `knowledge/universal/architecture.md` for the service communication model and `knowledge/platform/zai-sandbox.md` for gateway routing rules.
 2. Check if the target service is running — verify the mini-service or dev server is active.
 3. Check for port conflicts — ensure no two services use the same port.
 4. Check for CORS errors — these almost always indicate an absolute URL where a relative one is needed.
@@ -104,6 +105,13 @@ Use the error message and context to classify the error into one of the categori
    d. Re-perform the analysis on the current files.
    e. If the analysis output was already delivered to the user, issue a correction immediately with the updated findings.
    f. Return to VERIFY phase and complete a new verification report reflecting the corrected state.
+
+**AI / SDK:**
+1. If `z-ai-web-dev-sdk` error occurs in client-side code — the SDK must only run in server-side code (API routes, server actions). Move the invocation to a server-side endpoint.
+2. For rate limiting or timeout errors — add retry logic with exponential backoff, or simplify the request (shorter prompt, fewer tokens).
+3. For image generation failures — verify the `size` parameter is one of the supported values (1024x1024, 768x1344, 864x1152, etc.). Check that the output path is valid.
+4. For web search failures — check network connectivity; the search function requires internet access through the platform gateway.
+5. If the SDK environment is unavailable — stop and inform the user. The SDK requires specific platform environment variables that may not be present in all contexts.
 
 **Other:**
 1. Isolate a minimal reproduction — reduce the failing code to the smallest possible case that still produces the error.

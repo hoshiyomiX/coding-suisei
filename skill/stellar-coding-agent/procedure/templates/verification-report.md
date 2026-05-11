@@ -8,7 +8,23 @@ Ad hoc verification ("it seems to work") is unreliable because it depends on the
 
 ---
 
-## Template
+## Compact Template (Simple Tasks)
+
+For Simple tasks (single file, no schema change), use this abbreviated format:
+
+```markdown
+# Verification Report: [Task Name]
+
+| Check | Status | Note |
+|-------|--------|------|
+| Lint / Type Check | PASS / FAIL | |
+| Key behavior verified | PASS / FAIL | |
+| Edge cases tested | PASS / FAIL | |
+| Defects found | [n] | Fixed: [n] |
+| Overall | PASS / FAIL | |
+```
+
+## Full Template (Standard/Complex Tasks)
 
 Copy and complete the following after the IMPLEMENT phase:
 

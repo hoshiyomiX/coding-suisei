@@ -27,7 +27,7 @@ This convention is borrowed from Memweave: the filename itself determines the li
 
 ## Memory Budget (inspired by Hermes)
 
-MEMORY.md has a **soft budget of ~2,000 characters** (~700 tokens). This keeps evergreen memory lean enough to load in IDLE without consuming disproportionate context.
+MEMORY.md has a **soft budget of ~3,000 characters** (~1,000 tokens). This keeps evergreen memory lean enough to load in IDLE without consuming disproportionate context, while providing enough room for meaningful preference and pattern entries.
 
 This is not a hard limit enforced by code — it is a guideline. When the DELIVER phase detects that MEMORY.md exceeds the budget, it flags it to the agent. The agent then decides what to consolidate, archive, or rephrase. This follows Hermes's philosophy: let the LLM perform its own importance assessment rather than relying on mechanical eviction algorithms.
 
@@ -36,6 +36,21 @@ Consolidation options when budget is exceeded:
 - Move resolved items (e.g., a fixed "never" rule) to dated files as context
 - Archive project-specific knowledge to dated files
 - Rephrase verbose entries concisely
+
+## Phase-Transition Memory Reminders
+
+Memory is not only loaded in IDLE. At each phase transition, a one-line check ensures continuity:
+
+| Transition | Memory Action |
+|-----------|--------------|
+| IDLE → SPECIFY | Read `memory/MEMORY.md` for preferences and constraints |
+| SPECIFY → PLAN | Check `memory/decisions.md` for relevant prior decisions |
+| PLAN → IMPLEMENT | Check `memory/MEMORY.md` for workflow patterns |
+| IMPLEMENT → VERIFY | No memory check needed |
+| VERIFY → DELIVER | Check `memory/MEMORY.md` before writing session digest |
+| Error Recovery | Read `memory/incidents.md` for similar past errors |
+
+These reminders are lightweight — a single line of context that keeps memory active throughout the entire phase machine, not just at the start.
 
 ---
 
@@ -123,7 +138,8 @@ budget: ~X/2000 chars
 
 | Phase | Memory Action |
 |-------|--------------|
-| IDLE (action 3) | Read `memory/MEMORY.md` for preferences and patterns |
+| IDLE (action 4) | Read `memory/MEMORY.md` for preferences and patterns |
+| Every phase transition | One-line check of relevant memory file |
 | DELIVER (action 1) | Append session digest to `memory/YYYY-MM-DD.md` |
-| DELIVER (action 2) | Check MEMORY.md budget, flag if exceeded |
+| DELIVER (action 2) | Check MEMORY.md budget (~3000 chars), flag if exceeded |
 | Error Handling (step 5) | Append incident to `memory/incidents.md` |

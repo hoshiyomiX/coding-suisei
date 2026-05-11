@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document describes the runtime environment, directory structure, service topology, and key constraints of the z.ai sandbox. Use this as the authoritative reference when making decisions about where code lives and how services communicate.
+This document describes the runtime environment, directory structure, service topology, and key constraints. Use this as the authoritative reference when making decisions about where code lives and how services communicate. Platform-specific overrides are in `knowledge/platform/`.
 
 ---
 

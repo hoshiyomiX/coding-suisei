@@ -1,5 +1,5 @@
 #!/bin/bash
-# stellar-coding-agent — Install, self-heal, and bootstrap (git-tracked)
+# stellar-coding-agent — Install, self-heal, and bootstrap (git-tracked) v5.3.0
 # First run: installs skill files. Subsequent runs: auto-updates + self-heals + starts dev server.
 # Usage: bash stellar-coding-agent/boot.sh
 
@@ -61,8 +61,15 @@ fi
 
 # ── 1. Install / self-heal: copy git-tracked skill/ → platform skills/ ──
 NEED_INSTALL=false
-if [ ! -f "$INSTALL_DIR/SKILL.md" ] || ! grep -q "Phase State Machine" "$INSTALL_DIR/SKILL.md" 2>/dev/null; then
+if [ ! -f "$INSTALL_DIR/SKILL.md" ]; then
   NEED_INSTALL=true
+else
+  INSTALLED_VER="$(grep -oP 'version:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "$INSTALL_DIR/SKILL.md" 2>/dev/null || echo "0.0.0")"
+  SOURCE_VER="$(grep -oP 'version:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "$SOURCE_DIR/SKILL.md" 2>/dev/null || echo "0.0.0")"
+  if [ "$INSTALLED_VER" != "$SOURCE_VER" ]; then
+    NEED_INSTALL=true
+    echo "[boot] Version mismatch: installed $INSTALLED_VER → source $SOURCE_VER"
+  fi
 fi
 
 if $NEED_INSTALL; then
@@ -85,10 +92,10 @@ if $NEED_INSTALL; then
     procedure/decision-trees/error-resolution.md \
     constraints/code-standards.md \
     constraints/type-safety.md \
-    knowledge/architecture.md \
-    knowledge/conventions.md \
-    knowledge/platform-constraints.md \
-    knowledge/error-patterns.md \
+    knowledge/universal/architecture.md \
+    knowledge/universal/conventions.md \
+    knowledge/universal/error-patterns.md \
+    knowledge/platform/zai-sandbox.md \
     memory-template.md; do
     if [ -f "$INSTALL_DIR/$f" ]; then
       : # OK

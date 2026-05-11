@@ -16,7 +16,7 @@ On error: stop work, document the error, fix the root cause, return to VERIFY. I
 
 ## Phase 1: IDLE
 
-**Purpose**: Receive the user's request and classify task complexity.
+**Purpose**: Receive the user's request, classify complexity and task type.
 
 **Actions**:
 1. Receive and acknowledge the request.
@@ -24,13 +24,33 @@ On error: stop work, document the error, fix the root cause, return to VERIFY. I
    - **Simple**: Single file, no schema change, no new dependencies.
    - **Standard**: Multiple files or a schema change.
    - **Complex**: Architectural changes, multi-service, or high risk.
-3. Check `memory/MEMORY.md` for user preferences, patterns, and key decisions. If the `memory/` directory does not exist, it will be created on first DELIVER — skip this step. For tasks requiring session continuity, also check the most recent dated file in `memory/`.
-4. If the task involves a git repository and the session was continued from a previous conversation (context compression boundary), flag the repository as "state-uncertain" and require Source State Verification in SPECIFY.
-5. Transition to SPECIFY.
+3. Classify task type (see [Task Type Awareness](#task-type-adaptation) below):
+   - **Coding**: Web dev, bug fix, refactor, new feature.
+   - **Document**: Report, proposal, DOCX, PDF, XLSX, PPT.
+   - **Visualization**: Charts, diagrams, mind maps, dashboards.
+   - **Data Processing**: ETL, analysis, transform, Python scripts.
+4. Check `memory/MEMORY.md` for user preferences, patterns, and key decisions. If the `memory/` directory does not exist, it will be created on first DELIVER — skip this step. For tasks requiring session continuity, also check the most recent dated file in `memory/`.
+5. If the task involves a git repository and the session was continued from a previous conversation (context compression boundary), flag the repository as "state-uncertain" and require Source State Verification in SPECIFY.
+6. Transition to SPECIFY.
 
 **Artifacts**: None. IDLE is a routing phase.
 
-**Complexity tier note**: Simple tasks may abbreviate SPECIFY and PLAN into a single combined output, but must still produce all artifact fields from both templates.
+**Memory reminder**: At every subsequent phase transition, check `memory/MEMORY.md` for relevant patterns before proceeding. This one-line check at each transition ensures continuity even if the IDLE phase was abbreviated or skipped.
+
+## Task Type Adaptation
+
+The phase machine is task-type-aware. The core loop (SPECIFY → PLAN → IMPLEMENT → VERIFY → DELIVER) is always the same. What changes is what each phase produces:
+
+| Phase | Coding | Document | Visualization | Data Processing |
+|-------|--------|----------|---------------|-----------------|
+| **SPECIFY** | Problem spec, edge cases, affected files | Content outline, target format, sections | Visual requirements, data sources, layout | Data spec, input/output schema, transforms |
+| **PLAN** | Code steps + Traceability IDs | Section plan + content depth targets | Data mapping + chart type selection | Transform pipeline + validation steps |
+| **IMPLEMENT** | Write code | Generate document (via skill) | Generate chart (via skill) | Write script + execute |
+| **VERIFY** | Lint, type check, tests | Format check, content completeness | Visual accuracy, data integrity | Output validation, edge cases |
+
+Traceability IDs (IMPL-001, IMPL-002, ...) apply to all task types — they trace requirements through every phase regardless of what is being built.
+
+---
 
 ## Complexity Tiers & PCR Format
 
@@ -73,16 +93,16 @@ All phases use their full templates with extra detail. Traceability IDs required
 
 **Purpose**: Produce a precise problem specification that removes ambiguity.
 
-**Entry criteria**: Task complexity classified, user preferences loaded, source state verified (if git repository — see SSV in SKILL.md).
+**Entry criteria**: Task complexity classified, task type identified, user preferences loaded, source state verified (if git repository — see SSV in SKILL.md).
 
 **Actions**:
 1. Restate the request in precise technical terms.
 2. Identify functional requirements.
-3. Identify technical constraints. Reference `knowledge/architecture.md` for sandbox constraints.
+3. Identify technical constraints. Reference `knowledge/universal/architecture.md` for general constraints and `knowledge/platform/zai-sandbox.md` for sandbox-specific rules.
 4. Enumerate edge cases with handling strategies.
 5. List all files to be created or modified with action type (create/modify).
 6. Assess risk level (LOW / MEDIUM / HIGH) with justification.
-7. Identify dependencies.
+7. Identify dependencies — include required skills if the task needs multi-skill orchestration (see Skill Chain below).
 8. If git repository, perform Source State Verification (see SKILL.md) and record the verified state.
 9. Fill out the problem specification template and present to user.
 
@@ -106,11 +126,17 @@ All phases use their full templates with extra detail. Traceability IDs required
 3. Break implementation into ordered steps. Each step gets a Traceability ID (IMPL-001, IMPL-002, etc.).
 4. Define verification strategy — what to check, how, and expected outcome.
 5. Read relevant knowledge files based on task type (see Phase References in SKILL.md).
-6. Fill out the implementation plan template and present.
+6. **Skill Chain** (if applicable): If the task requires multiple skills, define the skill sequence:
+   - Identify skills needed and their invocation order (e.g., web-search → data processing → chart generation → PDF output).
+   - Assign skill-level Traceability IDs (SKILL-001, SKILL-002, ...) for each skill invocation.
+   - Define intermediate artifacts between skill invocations.
+   - Note: Skill invocations should be delegated to subagents when possible; the main agent orchestrates the chain.
+7. **TodoWrite Sync** (recommended): Sync implementation steps to the platform's native `TodoWrite` tool for real-time visibility. Each IMPL-XXX becomes a TodoWrite item with pending → in_progress → completed status transitions.
+8. Fill out the implementation plan template and present.
 
 **Artifact**: `procedure/templates/implementation-plan.md`
 
-**Exit criteria**: Every requirement maps to at least one step. Every step has a Traceability ID. Verification strategy covers all edge cases.
+**Exit criteria**: Every requirement maps to at least one step. Every step has a Traceability ID. Verification strategy covers all edge cases. Skill chain defined if multi-skill task.
 
 **Transition**: On acceptance → IMPLEMENT. On revision → update and re-present.
 
@@ -118,20 +144,22 @@ All phases use their full templates with extra detail. Traceability IDs required
 
 ## Phase 4: IMPLEMENT
 
-**Purpose**: Write code, following the plan step by step.
+**Purpose**: Execute the plan step by step.
 
 **Entry criteria**: Implementation plan approved. Relevant knowledge files read.
 
 **Actions**:
 1. For each implementation step:
    a. Reference the Traceability ID in a comment or context note.
-   b. Write the code.
-   c. Follow constraints from `constraints/code-standards.md` and `constraints/type-safety.md`.
+   b. Execute the step (write code, generate document, invoke skill, run script).
+   c. Follow constraints from `constraints/code-standards.md` and `constraints/type-safety.md` (coding tasks).
    d. If new dependency needed, install it before writing code that uses it.
-2. Self-review using the Review Checklist in the verification report template.
-3. Fix issues found during self-review before transitioning.
+   e. Update TodoWrite item status if syncing (pending → in_progress → completed).
+2. If the plan includes a Skill Chain, execute each skill invocation in order, passing intermediate artifacts between skills.
+3. Self-review using the Review Checklist in the verification report template.
+4. Fix issues found during self-review before transitioning.
 
-**Artifacts**: The code itself. Inline traceability references (each code block annotated with its Traceability ID).
+**Artifacts**: The output (code, document, chart, script). Inline traceability references (each section annotated with its Traceability ID).
 
 **Exit criteria**: All steps completed. Self-review passes with no unresolved issues.
 
@@ -146,11 +174,15 @@ All phases use their full templates with extra detail. Traceability IDs required
 **Entry criteria**: All steps complete. Self-review performed.
 
 **Actions**:
-1. Run automated checks: lint, type check, existing tests.
+1. Run automated checks appropriate to task type:
+   - Coding: lint, type check, existing tests.
+   - Document: format validation, content completeness check.
+   - Visualization: visual accuracy review, data integrity check.
+   - Data Processing: output validation, edge case testing.
 2. If analyzing existing code from a git repository, verify analyzed files matched the remote state at time of analysis. If discrepancy found, return to SPECIFY.
 3. Traceability verification — confirm every Traceability ID has a corresponding implementation.
 4. Edge case verification — test input, expected behavior, actual behavior for each edge case from the spec.
-5. Fill out the verification report template.
+5. Fill out the verification report template (use Compact variant for Simple tasks, full template for Standard/Complex).
 
 **Artifact**: `procedure/templates/verification-report.md`
 
@@ -183,13 +215,14 @@ All phases use their full templates with extra detail. Traceability IDs required
    ```
 
    This is the first action of DELIVER, not an afterthought. It fires while attention is still on the task.
-2. **Check MEMORY.md budget** — if `memory/MEMORY.md` exceeds ~2,000 characters, note in the delivery: "Memory budget warning: MEMORY.md at ~X/2000 chars. Consider consolidating entries on next session."
+2. **Check MEMORY.md budget** — if `memory/MEMORY.md` exceeds ~3,000 characters, note in the delivery: "Memory budget warning: MEMORY.md at ~X/3000 chars. Consider consolidating entries on next session."
 3. Summarize what was implemented, referencing Traceability IDs.
 4. List files created or modified.
 5. Note any dependencies added.
 6. Present verification report summary.
 7. State caveats or follow-up items.
 8. Output Process Compliance Report — use the compact format for Simple tasks, full format for Standard/Complex (see Complexity Tiers above).
+9. **Completion signal**: For web development tasks (Type 3 / Coding), call `Complete(project_type="web_dev", summary="...")`. For non-coding tasks, present the output file path directly.
 
 **Artifacts**: None new. Consumes verification report. Writes to `memory/YYYY-MM-DD.md` Session Digest.
 

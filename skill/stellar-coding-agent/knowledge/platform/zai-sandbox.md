@@ -1,8 +1,10 @@
-# Platform Constraints
+# z.ai Sandbox Constraints
 
 ## Purpose
 
-This document describes behaviors and limitations that differ from standard local development in the z.ai sandbox. These are not theoretical concerns — they cause real failures if ignored. Review this document before debugging, as many errors that appear to be code bugs are actually platform constraint violations.
+This document describes behaviors and limitations specific to the z.ai sandbox platform. These are not theoretical concerns — they cause real failures if ignored. Review this document before debugging, as many errors that appear to be code bugs are actually platform constraint violations.
+
+**Note**: This file is platform-specific. For universal coding knowledge (architecture, conventions, error patterns), see `knowledge/universal/`.
 
 ---
 

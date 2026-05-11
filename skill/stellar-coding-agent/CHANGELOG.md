@@ -1,5 +1,31 @@
 # Changelog
 
+## [5.3.0] — 2026-05-11
+
+### Added
+
+- **Task Type Awareness** — new section in SKILL.md and phases.md extending the phase machine beyond coding tasks. Four task types (Coding, Document, Visualization, Data Processing) each have adapted SPECIFY/PLAN/IMPLEMENT/VERIFY behaviors. Traceability IDs apply to all types.
+- **Multi-Skill Orchestration (Skill Chain)** — PLAN phase now supports defining skill invocation sequences with SKILL-level Traceability IDs (SKILL-001, SKILL-002, ...). Enables orchestrating multi-skill workflows (e.g., web-search → charts → PDF).
+- **TodoWrite Integration** — PLAN phase recommends syncing IMPL-XXX steps to the platform's native TodoWrite tool for real-time progress visibility.
+- **Compact Verification Template** — verification-report.md now includes a 5-row compact variant for Simple tasks, alongside the existing full template for Standard/Complex.
+- **AI/SDK Error Diagnostic Path** — new category in error-resolution.md covering SDK invocation failures, rate limiting, timeout, image generation errors, and web search failures.
+- **Phase-Transition Memory Reminders** — memory-template.md now defines a one-line memory check at each phase transition, not just IDLE. Ensures memory stays active throughout the entire phase machine.
+- **Completion Signal** — DELIVER phase now explicitly references the platform's `Complete` tool for web development tasks.
+
+### Changed
+
+- **boot.sh version check** — replaced weak `grep "Phase State Machine"` with semantic version comparison. Fixes the critical bug where v5.2.0 features were not installed because the check passed for both v5.0.0 and v5.2.0.
+- **boot.sh knowledge file paths** — updated to match new `knowledge/universal/` and `knowledge/platform/` directory structure.
+- **Knowledge directory restructured** — split into `knowledge/universal/` (architecture, conventions, error-patterns) and `knowledge/platform/zai-sandbox.md`. Universal files are portable across platforms; platform file contains z.ai-specific constraints. All internal references updated.
+- **Skill description shortened** — removed verbose trigger phrases from frontmatter (was ~600 chars, now ~120 chars). Improves skill triggering accuracy on the platform.
+- **PCR block enhanced** — added `Tier` field (Simple/Standard/Complex) for better task tracking.
+- **Memory budget increased** — MEMORY.md soft budget raised from ~2,000 to ~3,000 characters to accommodate meaningful preference entries.
+- **Error resolution references updated** — all knowledge file references now point to `knowledge/universal/` and `knowledge/platform/zai-sandbox.md`.
+
+### Fixed
+
+- **boot.sh auto-update failure** — the `NEED_INSTALL` check used `grep -q "Phase State Machine"` which matched both v5.0.0 and v5.2.0, preventing auto-update from v5.0.0 to v5.2.0. Now uses version tag comparison.
+
 ## [5.2.0] — 2026-05-10
 
 ### Added
