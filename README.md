@@ -20,11 +20,17 @@ IDLE → SPECIFY → PLAN → IMPLEMENT → VERIFY → DELIVER
 
 ## Quick Start
 
+**First time** — clone + install + dev server:
 ```bash
 cd ~/my-project && git clone https://github.com/hoshiyomiX/stellar-frameworks.git && bash stellar-frameworks/boot.sh
 ```
 
-Invoke: `Skill(command="stellar-frameworks")` — look for `☄️ STELLAR · v5.4.0 · ACTIVE`. That's it.
+**Every new session** — reinstall (sandbox wipes `skills/` on reset):
+```bash
+bash ~/my-project/stellar-frameworks/boot.sh
+```
+
+Invoke: `Skill(command="stellar-frameworks")` — look for `☄️ STELLAR · v5.4.0 · ACTIVE`.
 
 ---
 
