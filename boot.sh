@@ -1,7 +1,9 @@
 #!/bin/bash
 # stellar-frameworks — Install, self-heal, and bootstrap (git-tracked) v5.4.0
-# First run: installs skill files. Subsequent runs: auto-updates + self-heals + starts dev server.
-# Usage: bash stellar-frameworks/boot.sh [--install-only]
+# Works from anywhere: auto-clones repo if missing, then installs + bootstraps.
+# Usage: bash <(curl -sL https://raw.githubusercontent.com/hoshiyomiX/stellar-frameworks/main/boot.sh)
+#    or: bash ~/my-project/stellar-frameworks/boot.sh
+#    or: bash stellar-frameworks/boot.sh [--install-only]
 
 set -euo pipefail
 
@@ -13,11 +15,31 @@ for arg in "$@"; do
   esac
 done
 
+# ── 0. Auto-clone: if running from a one-liner, SCRIPT_DIR is a temp dir — detect and clone ──
+# Determine if we're running from a temp dir (piped via curl) vs a local repo
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_URL="https://github.com/hoshiyomiX/stellar-frameworks.git"
+PROJECT_ROOT="${PROJECT_ROOT:-/home/z/my-project}"
+TARGET_DIR="$PROJECT_ROOT/stellar-frameworks"
+
+if [ ! -f "$TARGET_DIR/boot.sh" ]; then
+  echo "[boot] Repo not found at $TARGET_DIR — cloning..."
+  mkdir -p "$PROJECT_ROOT"
+  git clone "$REPO_URL" "$TARGET_DIR" 2>/dev/null || {
+    echo "[boot] ERROR: git clone failed. Check network or run manually:"
+    echo "  cd $PROJECT_ROOT && git clone $REPO_URL"
+    exit 1
+  }
+  echo "[boot] Cloned successfully"
+  SCRIPT_DIR="$TARGET_DIR"
+elif [ "$(basename "$SCRIPT_DIR")" != "stellar-frameworks" ]; then
+  # SCRIPT_DIR is inside a temp dir (curl pipe), but repo exists — redirect
+  SCRIPT_DIR="$TARGET_DIR"
+fi
+
 SOURCE_DIR="$SCRIPT_DIR/skill/stellar-frameworks"
 
 # IMPL-002: Detect project root — repo may be a subdirectory of /home/z/my-project/
-PROJECT_ROOT="${PROJECT_ROOT:-/home/z/my-project}"
 if [ -f "$PROJECT_ROOT/package.json" ] && [ -d "$PROJECT_ROOT/src/app" ]; then
   : # PROJECT_ROOT explicitly set or detected
 else
