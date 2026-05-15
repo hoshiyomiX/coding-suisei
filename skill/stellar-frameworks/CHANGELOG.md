@@ -1,5 +1,16 @@
 # Changelog
 
+## [5.4.3] — 2026-05-15
+
+### Fixed
+
+- **Critical: Race condition in .bashrc auto-heal hook** — The .bashrc hook used `&` (background/async) and ran `--install-only` which still performed git fetch/pull (~5-10s network delay). The platform sources `.bashrc` then immediately scans `skills/` for available skills. If the hook hadn't finished copying files by the time the scan ran, the skill was invisible for the entire session. Fixed with two changes: (1) New `--fast` flag skips ALL git operations, reducing hook execution from ~5-10s to ~0.1s (pure local file copy). (2) Removed `&` from hook command — hook now runs synchronously so the platform always sees the restored files before scanning.
+- **Stale .bashrc hook cleanup** — boot.sh now removes old async hooks (v5.4.2 with trailing `&`) and stale hooks from wrong path (`$PROJECT_ROOT/.bashrc`, v5.4.1 bug). Both boot.sh and setup.sh rewrite the hook on every run to ensure it's always the latest version.
+
+### Why
+
+Timestamp analysis proved sandbox resets restore `skills/` from a base snapshot (all 51 built-in skills share identical May 11 10:01 timestamp). Custom-installed skills like stellar-frameworks are wiped on reset. The .bashrc auto-heal hook was the correct recovery strategy, but the async+git combination created a race condition: platform scans skills/ before the background hook finishes copying files. With `--fast` (no git, pure local copy ~0.1s) + synchronous execution, the hook completes before the platform scans, eliminating the race.
+
 ## [5.4.2] — 2026-05-15
 
 ### Fixed

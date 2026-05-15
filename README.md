@@ -4,7 +4,7 @@
 
 **Universal task workflow for LLM agents**
 
-[![Version](https://img.shields.io/badge/version-5.4.2-blue.svg)](skill/stellar-frameworks/CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.4.3-blue.svg)](skill/stellar-frameworks/CHANGELOG.md)
 
 Structures ALL tasks — coding and non-coding — as a **phase state machine** with traceability IDs, artifact templates, source state verification, and file-based agent memory. For coding tasks, full phases with verification. For non-coding tasks, phases run internally (Minimal tier) but the framework still activates for traceability. Designed for the [z.ai](https://z.ai) platform.
 
@@ -24,7 +24,7 @@ IDLE → SPECIFY → PLAN → IMPLEMENT → VERIFY → DELIVER
 cd ~/my-project && git clone https://github.com/hoshiyomiX/stellar-frameworks.git 2>/dev/null; bash stellar-frameworks/boot.sh
 ```
 
-Invoke: `Skill(command="stellar-frameworks")` — look for `☄️ STELLAR · v5.4.1 · ACTIVE`.
+Invoke: `Skill(command="stellar-frameworks")` — look for `☄️ STELLAR · v5.4.3 · ACTIVE`.
 
 ---
 
@@ -126,7 +126,7 @@ Recovery mechanism:
 |----------|----------|-------------|
 | **Fresh sandbox** (first time) | Run the Quick Start one-liner | Clones repo, installs skill files to `skills/`, writes auto-heal hook to `$HOME/.bashrc` |
 | **After install, same session** | **Restart the session** | Platform re-scans `skills/` at session start — skill becomes available |
-| **Sandbox reset** (inactive hours) | `$HOME/.bashrc` hook auto-triggers | Every new shell opens → `boot.sh --install-only` runs in background → skill files restored |
+| **Sandbox reset** (inactive hours) | `$HOME/.bashrc` hook auto-triggers (synchronous, `--fast` mode) | Every new shell opens → `boot.sh --fast --install-only` runs synchronously (~0.1s) → skill files restored BEFORE platform scans `skills/` |
 
 **Important**: After running the one-liner, you **must restart the session** for the skill to appear in `available_skills`. This is a platform constraint — skills are loaded once at session start and not refreshed mid-session. The `$HOME/.bashrc` auto-heal hook ensures subsequent sessions recover automatically even if the sandbox resets.
 
@@ -183,7 +183,7 @@ stellar-frameworks/
 
 | Version | Summary |
 |---------|---------|
-| [**v5.4.2**](skill/stellar-frameworks/CHANGELOG.md) | Critical fix: .bashrc auto-heal hook was written to wrong path ($PROJECT_ROOT instead of $HOME), making self-heal non-functional. Post-install restart notice added. |
+| [**v5.4.3**](skill/stellar-frameworks/CHANGELOG.md) | Critical fix: race condition in .bashrc hook (async + git ops). Now synchronous + `--fast` (no git, ~0.1s). Stale hook cleanup. |
 | [**v5.4.1**](skill/stellar-frameworks/CHANGELOG.md) | Source Availability & Documentation Check (SADC) — mandatory research before SPECIFY. Prevents building from assumptions. |
 | [**v5.4.0**](skill/stellar-frameworks/CHANGELOG.md) | Adaptive complexity tiers — Minimal/Simple/Standard/Complex. All phases always run, no SKIP. Non-coding tasks use Minimal tier (phases internal, only IMPLEMENT visible). |
 | [**v5.3.1**](skill/stellar-frameworks/CHANGELOG.md) | Skill description optimized for aggressive triggering (eval 5/20 → 20/20). setup.sh version confirmation fix. |

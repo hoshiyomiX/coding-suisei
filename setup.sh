@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-#  stellar-frameworks v5.4.2
+#  stellar-frameworks v5.4.3
 #
 #  Install:  cd /home/z/my-project/stellar-frameworks && bash setup.sh
 #  Invoke:   Skill(command="stellar-frameworks")
@@ -29,7 +29,7 @@ fail()  { echo -e "${RED}[FAIL]${NC}  $*"; }
 
 echo ""
 echo "============================================"
-echo "  ☄️ stellar-frameworks v5.4.2"
+echo "  ☄️ stellar-frameworks v5.4.3"
 echo "============================================"
 echo ""
 
@@ -71,8 +71,8 @@ if [ -f "${INSTALL_DIR}/SKILL.md" ]; then
         ERRORS=$((ERRORS + 1))
     fi
 
-    if grep -q "v5.4.2" "${INSTALL_DIR}/SKILL.md"; then
-        ok "Version 5.4.2 confirmed"
+    if grep -q "v5.4.3" "${INSTALL_DIR}/SKILL.md"; then
+        ok "Version 5.4.3 confirmed"
     else
         fail "Version mismatch"
         ERRORS=$((ERRORS + 1))
@@ -109,23 +109,36 @@ fi
 BASHRC="$HOME/.bashrc"
 BASHRC_MARKER="# stellar-frameworks auto-heal"
 TARGET_DIR="${PROJECT_ROOT}/stellar-frameworks"
-BASHRC_CMD="bash $TARGET_DIR/boot.sh --install-only >/dev/null 2>&1 &"
+# v5.4.3: Synchronous + --fast (no git ops, no background) to avoid race condition
+BASHRC_CMD="bash $TARGET_DIR/boot.sh --fast --install-only >/dev/null 2>&1"
 
+# Clean up any old hooks (including v5.4.2 async variant with trailing &)
 if [ -f "$BASHRC" ]; then
-  if ! grep -qF "$BASHRC_MARKER" "$BASHRC" 2>/dev/null; then
-    printf '\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" >> "$BASHRC"
-    ok "Auto-heal hook added to $BASHRC"
+  if grep -qF "boot.sh" "$BASHRC" 2>/dev/null; then
+    sed -i '/# stellar-frameworks auto-heal/d' "$BASHRC"
+    sed -i '/boot.sh/d' "$BASHRC"
   fi
+  printf '\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" >> "$BASHRC"
+  ok "Auto-heal hook updated in $BASHRC"
 else
   printf '%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" > "$BASHRC"
   ok "Auto-heal hook written to $BASHRC"
+fi
+
+# Also clean up stale hook from wrong path (v5.4.1 bug)
+STALE_BASHRC="$PROJECT_ROOT/.bashrc"
+if [ -f "$STALE_BASHRC" ] && grep -qF "$BASHRC_MARKER" "$STALE_BASHRC" 2>/dev/null; then
+  sed -i '/# stellar-frameworks auto-heal/d' "$STALE_BASHRC"
+  sed -i '/boot.sh/d' "$STALE_BASHRC"
+  [ ! -s "$STALE_BASHRC" ] && rm -f "$STALE_BASHRC"
+  ok "Cleaned stale hook from $STALE_BASHRC"
 fi
 
 # --- Done ---
 echo ""
 echo "============================================"
 if [ $ERRORS -eq 0 ]; then
-    echo -e "${GREEN}  ☄️ v5.4.2 installed!${NC}"
+    echo -e "${GREEN}  ☄️ v5.4.3 installed!${NC}"
     echo ""
     echo "  ⚠️  Restart this session to activate the skill."
     echo "  The platform loads skills at session start."

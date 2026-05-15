@@ -1,18 +1,20 @@
 #!/bin/bash
-# stellar-frameworks — Install, self-heal, and bootstrap (git-tracked) v5.4.2
+# stellar-frameworks — Install, self-heal, and bootstrap (git-tracked) v5.4.3
 # Works from anywhere: auto-clones repo if missing, then installs + bootstraps.
 # Self-heal: after first run, adds .bashrc hook so future session resets auto-recover.
 # Usage: bash <(curl -sL https://raw.githubusercontent.com/hoshiyomiX/stellar-frameworks/main/boot.sh)
 #    or: bash ~/my-project/stellar-frameworks/boot.sh
-#    or: bash stellar-frameworks/boot.sh [--install-only]
+#    or: bash stellar-frameworks/boot.sh [--install-only] [--fast]
 
 set -euo pipefail
 
 # Parse flags
 INSTALL_ONLY=false
+FAST_MODE=false
 for arg in "$@"; do
   case "$arg" in
     --install-only) INSTALL_ONLY=true ;;
+    --fast)         FAST_MODE=true ;;
   esac
 done
 
@@ -56,7 +58,8 @@ DEV_SCRIPT="$ZSCRIPTS/dev.sh"
 
 # ── 0. Auto-update: pull if remote has newer skill files ──────────
 # Non-fatal: any git failure just skips the update and proceeds.
-if [ -d "$SCRIPT_DIR/.git" ]; then
+# SKIP entirely in --fast mode (used by .bashrc auto-heal to avoid race conditions).
+if [ -d "$SCRIPT_DIR/.git" ] && ! $FAST_MODE; then
   BRANCH="$(git -C "$SCRIPT_DIR" branch --show-current 2>/dev/null || echo "")"
   REMOTE="$(git -C "$SCRIPT_DIR" remote get-url origin 2>/dev/null || echo "")"
 
@@ -158,19 +161,37 @@ fi
 
 # ── 2. Self-heal persistence ────────────────────────────────────
 # Ensures stellar-frameworks auto-recovers after sandbox resets.
-# Writes a hook to $HOME/.bashrc that runs boot.sh --install-only on every shell open.
+# Writes a hook to $HOME/.bashrc that runs boot.sh --fast --install-only on every shell open.
 # CRITICAL: must be $HOME/.bashrc (sourced by platform), NOT $PROJECT_ROOT/.bashrc.
-# Non-blocking (background) so it never stalls the session.
+# Uses --fast to skip git operations (avoid 5-10s network delay = race condition).
+# Uses --install-only to skip dev server startup.
+# MUST be synchronous (no &) — platform scans skills/ AFTER .bashrc finishes sourcing.
 
 BASHRC="$HOME/.bashrc"
 BASHRC_MARKER="# stellar-frameworks auto-heal"
-BASHRC_CMD="bash $TARGET_DIR/boot.sh --install-only >/dev/null 2>&1 &"
+BASHRC_CMD="bash $TARGET_DIR/boot.sh --fast --install-only >/dev/null 2>&1"
 
-if [ -f "$BASHRC" ]; then
-  if ! grep -qF "$BASHRC_MARKER" "$BASHRC" 2>/dev/null; then
-    printf '\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" >> "$BASHRC"
-    echo "[boot] Added auto-heal hook to $BASHRC"
+# Clean up stale hook from wrong path (v5.4.1 bug)
+STALE_BASHRC="$PROJECT_ROOT/.bashrc"
+if [ -f "$STALE_BASHRC" ] && grep -qF "$BASHRC_MARKER" "$STALE_BASHRC" 2>/dev/null; then
+  sed -i '/# stellar-frameworks auto-heal/d' "$STALE_BASHRC"
+  sed -i '/boot.sh.*install-only/d' "$STALE_BASHRC"
+  # Remove file if empty
+  if [ ! -s "$STALE_BASHRC" ]; then
+    rm -f "$STALE_BASHRC"
   fi
+  echo "[boot] Cleaned stale hook from $STALE_BASHRC"
+fi
+
+# Remove any OLD async hook from $HOME/.bashrc (v5.4.2 bug — had trailing &)
+if [ -f "$BASHRC" ]; then
+  if grep -qF "boot.sh" "$BASHRC" 2>/dev/null; then
+    # Remove all existing stellar-frameworks hooks (will rewrite below)
+    sed -i '/# stellar-frameworks auto-heal/d' "$BASHRC"
+    sed -i '/boot.sh/d' "$BASHRC"
+  fi
+  printf '\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" >> "$BASHRC"
+  echo "[boot] Updated auto-heal hook in $BASHRC"
 else
   printf '%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" > "$BASHRC"
   echo "[boot] Created $BASHRC with auto-heal hook"
