@@ -159,15 +159,18 @@ else
   echo "[boot] Skill files OK"
 fi
 
-# ── 2. Self-heal persistence ────────────────────────────────────
+# ── 2. Self-heal persistence (multi-layer) ─────────────────────
 # Ensures stellar-frameworks auto-recovers after sandbox resets.
-# Writes a hook to $HOME/.bashrc that runs boot.sh --fast --install-only on every shell open.
-# CRITICAL: must be $HOME/.bashrc (sourced by platform), NOT $PROJECT_ROOT/.bashrc.
-# Uses --fast to skip git operations (avoid 5-10s network delay = race condition).
+# Writes hook to MULTIPLE shell init files for redundancy:
+#   $HOME/.bashrc       — interactive non-login shells
+#   $HOME/.bash_profile  — login shells (bash)
+#   $HOME/.profile       — login shells (POSIX fallback)
+# Sandbox resets may wipe some but rarely all three.
+#
+# Uses --fast to skip git operations (pure local copy ~60ms).
 # Uses --install-only to skip dev server startup.
-# MUST be synchronous (no &) — platform scans skills/ AFTER .bashrc finishes sourcing.
+# Synchronous (no &) — completes before platform processes continue.
 
-BASHRC="$HOME/.bashrc"
 BASHRC_MARKER="# stellar-frameworks auto-heal"
 BASHRC_CMD="bash $TARGET_DIR/boot.sh --fast --install-only >/dev/null 2>&1"
 
@@ -175,47 +178,42 @@ BASHRC_CMD="bash $TARGET_DIR/boot.sh --fast --install-only >/dev/null 2>&1"
 STALE_BASHRC="$PROJECT_ROOT/.bashrc"
 if [ -f "$STALE_BASHRC" ] && grep -qF "$BASHRC_MARKER" "$STALE_BASHRC" 2>/dev/null; then
   sed -i '/# stellar-frameworks auto-heal/d' "$STALE_BASHRC"
-  sed -i '/boot.sh.*install-only/d' "$STALE_BASHRC"
-  # Remove file if empty
-  if [ ! -s "$STALE_BASHRC" ]; then
-    rm -f "$STALE_BASHRC"
-  fi
+  sed -i '/boot.sh/d' "$STALE_BASHRC"
+  [ ! -s "$STALE_BASHRC" ] && rm -f "$STALE_BASHRC"
   echo "[boot] Cleaned stale hook from $STALE_BASHRC"
 fi
 
-# Remove any OLD async hook from $HOME/.bashrc (v5.4.2 bug — had trailing &)
-if [ -f "$BASHRC" ]; then
-  if grep -qF "boot.sh" "$BASHRC" 2>/dev/null; then
-    # Remove all existing stellar-frameworks hooks (will rewrite below)
-    sed -i '/# stellar-frameworks auto-heal/d' "$BASHRC"
-    sed -i '/boot.sh/d' "$BASHRC"
+# Write hook to all three init files
+HOOK_TARGETS=("$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile")
+HOOKS_WRITTEN=0
+
+for HOOK_FILE in "${HOOK_TARGETS[@]}"; do
+  # Remove any existing hooks (including old async variants with &)
+  if [ -f "$HOOK_FILE" ]; then
+    if grep -qF "boot.sh" "$HOOK_FILE" 2>/dev/null; then
+      sed -i '/# stellar-frameworks auto-heal/d' "$HOOK_FILE"
+      sed -i '/boot.sh/d' "$HOOK_FILE"
+    fi
+    printf '\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" >> "$HOOK_FILE"
+  else
+    printf '%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" > "$HOOK_FILE"
   fi
-  printf '\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" >> "$BASHRC"
-  echo "[boot] Updated auto-heal hook in $BASHRC"
-else
-  printf '%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" > "$BASHRC"
-  echo "[boot] Created $BASHRC with auto-heal hook"
-fi
+  HOOKS_WRITTEN=$((HOOKS_WRITTEN + 1))
+done
+
+echo "[boot] Auto-heal hook written to $HOOKS_WRITTEN/3 init files"
 
 # ── 3. Post-install notice ─────────────────────────────────────
-# The platform loads available_skills at session start. If this is a fresh
-# install (NEED_INSTALL=true), the skill won't appear until the NEXT session.
-# Inform the user so they know to restart.
+# Platform reads SKILL.md from disk on each Skill() call (NOT cached).
+# So updates are effective immediately — no restart needed.
 
 if $NEED_INSTALL && ! $INSTALL_ONLY; then
   echo ""
   echo "╔══════════════════════════════════════════════════════════════╗"
-  echo "║  Skill installed! Two ways to activate:                      ║"
-  echo "║                                                              ║"
-  echo "║  OPTION A — Mid-session (no restart):                        ║"
-  echo "║  Read the skill file directly:                               ║"
-  echo "║    Read: $INSTALL_DIR/SKILL.md                               ║"
-  echo "║  Then follow the instructions. Content is identical to       ║"
-  echo "║  what Skill() would inject.                                  ║"
-  echo "║                                                              ║"
-  echo "║  OPTION B — Full activation (restart session):               ║"
-  echo "║  After restart, Skill(command=\"stellar-frameworks\") works.  ║"
-  echo "║  Auto-heal is configured — future sessions self-recover.     ║"
+  echo "║  ✅ v5.4.3 installed and ACTIVE — no restart needed!         ║"
+  echo "║  Skill() reads from disk — updates are instant.              ║"
+  echo "║  Invoke: Skill(command=\"stellar-frameworks\")                 ║"
+  echo "║  Auto-heal: hook written to 3 init files for resilience.    ║"
   echo "╚══════════════════════════════════════════════════════════════╝"
   echo ""
 fi

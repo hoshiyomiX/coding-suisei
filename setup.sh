@@ -105,27 +105,32 @@ else
     ERRORS=$((ERRORS + 1))
 fi
 
-# --- Self-heal: configure $HOME/.bashrc hook ---
-BASHRC="$HOME/.bashrc"
+# --- Self-heal: configure hooks in multiple init files ---
 BASHRC_MARKER="# stellar-frameworks auto-heal"
 TARGET_DIR="${PROJECT_ROOT}/stellar-frameworks"
-# v5.4.3: Synchronous + --fast (no git ops, no background) to avoid race condition
+# v5.4.3: Synchronous + --fast (no git ops, no background)
 BASHRC_CMD="bash $TARGET_DIR/boot.sh --fast --install-only >/dev/null 2>&1"
 
-# Clean up any old hooks (including v5.4.2 async variant with trailing &)
-if [ -f "$BASHRC" ]; then
-  if grep -qF "boot.sh" "$BASHRC" 2>/dev/null; then
-    sed -i '/# stellar-frameworks auto-heal/d' "$BASHRC"
-    sed -i '/boot.sh/d' "$BASHRC"
-  fi
-  printf '\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" >> "$BASHRC"
-  ok "Auto-heal hook updated in $BASHRC"
-else
-  printf '%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" > "$BASHRC"
-  ok "Auto-heal hook written to $BASHRC"
-fi
+# Write to all three init files for redundancy
+HOOK_TARGETS=("$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile")
+HOOKS_WRITTEN=0
 
-# Also clean up stale hook from wrong path (v5.4.1 bug)
+for HOOK_FILE in "${HOOK_TARGETS[@]}"; do
+  if [ -f "$HOOK_FILE" ]; then
+    if grep -qF "boot.sh" "$HOOK_FILE" 2>/dev/null; then
+      sed -i '/# stellar-frameworks auto-heal/d' "$HOOK_FILE"
+      sed -i '/boot.sh/d' "$HOOK_FILE"
+    fi
+    printf '\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" >> "$HOOK_FILE"
+  else
+    printf '%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" > "$HOOK_FILE"
+  fi
+  HOOKS_WRITTEN=$((HOOKS_WRITTEN + 1))
+done
+
+ok "Auto-heal hook written to $HOOKS_WRITTEN/3 init files (.bashrc, .bash_profile, .profile)"
+
+# Clean up stale hook from wrong path (v5.4.1 bug)
 STALE_BASHRC="$PROJECT_ROOT/.bashrc"
 if [ -f "$STALE_BASHRC" ] && grep -qF "$BASHRC_MARKER" "$STALE_BASHRC" 2>/dev/null; then
   sed -i '/# stellar-frameworks auto-heal/d' "$STALE_BASHRC"
@@ -138,16 +143,11 @@ fi
 echo ""
 echo "============================================"
 if [ $ERRORS -eq 0 ]; then
-    echo -e "${GREEN}  ☄️ v5.4.3 installed!${NC}"
+    echo -e "${GREEN}  ☄️ v5.4.3 installed and ACTIVE — no restart needed!${NC}"
     echo ""
-    echo "  OPTION A — Mid-session (no restart):"
-    echo "    Read the skill file: ${INSTALL_DIR}/SKILL.md"
-    echo "    Then follow the instructions directly."
-    echo ""
-    echo "  OPTION B — Full activation (restart session):"
-    echo "    After restart, Skill(command=\"stellar-frameworks\") works."
-    echo ""
+    echo "  Skill() reads SKILL.md from disk — updates are instant."
     echo "  Invoke: Skill(command=\"stellar-frameworks\")"
+    echo ""
     echo "============================================"
 else
     echo -e "${RED}  Install completed with ${ERRORS} error(s)${NC}"

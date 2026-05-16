@@ -4,16 +4,27 @@
 
 ### Fixed
 
-- **Critical: Race condition in .bashrc auto-heal hook** — The .bashrc hook used `&` (background/async) and ran `--install-only` which still performed git fetch/pull (~5-10s network delay). The platform sources `.bashrc` then immediately scans `skills/` for available skills. If the hook hadn't finished copying files by the time the scan ran, the skill was invisible for the entire session. Fixed with two changes: (1) New `--fast` flag skips ALL git operations, reducing hook execution from ~5-10s to ~0.1s (pure local file copy). (2) Removed `&` from hook command — hook now runs synchronously so the platform always sees the restored files before scanning.
-- **Stale .bashrc hook cleanup** — boot.sh now removes old async hooks (v5.4.2 with trailing `&`) and stale hooks from wrong path (`$PROJECT_ROOT/.bashrc`, v5.4.1 bug). Both boot.sh and setup.sh rewrite the hook on every run to ensure it's always the latest version.
+- **Critical: Race condition in .bashrc auto-heal hook** — The .bashrc hook used `&` (background/async) and ran `--install-only` which still performed git fetch/pull (~5-10s network delay). Fixed with `--fast` flag (skip git, ~60ms) + synchronous execution (no `&`).
+- **Stale .bashrc hook cleanup** — boot.sh now removes old async hooks (v5.4.2 with trailing `&`) and stale hooks from wrong path (`$PROJECT_ROOT/.bashrc`, v5.4.1 bug).
+- **Multi-layer hook redundancy** — Hook now written to 3 init files (`.bashrc`, `.bash_profile`, `.profile`) instead of just `.bashrc`. Sandbox resets may wipe one but rarely all three.
+
+### Changed
+
+- **Post-install message: no restart needed** — Platform reads SKILL.md from disk on each `Skill()` call, NOT from a session-start cache. Updates are effective immediately without restart. Previous versions incorrectly told users to restart.
 
 ### Added
 
-- **Mid-session activation** — `activate.sh` script reads SKILL.md directly and outputs its content. Since `Skill()` caches `available_skills` at session start (platform limitation), skills installed mid-session can't be invoked via `Skill()`. However, `Read(path="skills/stellar-frameworks/SKILL.md")` accesses the exact same file and produces identical content. The post-install message in both boot.sh and setup.sh now presents two options: (A) read SKILL.md directly for immediate mid-session use, or (B) restart session for native `Skill()` support.
+- **Mid-session activation via direct file read** — `activate.sh` script for cases where the skill directory doesn't exist yet (before first boot.sh run).
 
 ### Why
 
-Timestamp analysis proved sandbox resets restore `skills/` from a base snapshot (all 51 built-in skills share identical May 11 10:01 timestamp). Custom-installed skills like stellar-frameworks are wiped on reset. The .bashrc auto-heal hook was the correct recovery strategy, but the async+git combination created a race condition: platform scans skills/ before the background hook finishes copying files. With `--fast` (no git, pure local copy ~0.1s) + synchronous execution, the hook completes before the platform scans, eliminating the race.
+Three key discoveries drove this release:
+
+1. **Platform reads SKILL.md from disk each time** `Skill()` is called — it does NOT cache content at session start. This was verified by overwriting v5.3.0 → v5.4.3 on disk and immediately getting v5.4.3 from `Skill()`. This eliminates the "must restart" friction entirely.
+
+2. **Sandbox snapshot includes stellar-frameworks v5.3.0** — The platform ships an outdated version in the base image. Fresh sandboxes always start with v5.3.0, which lacks SADC, improved session continuity, and other v5.4.x features. The auto-heal hook upgrades to latest on next shell open.
+
+3. **Single `.bashrc` hook is fragile** — Sandbox resets can wipe `$HOME/.bashrc`. Writing to three init files (`.bashrc`, `.bash_profile`, `.profile`) provides redundancy: at least one typically survives a reset.
 
 ## [5.4.2] — 2026-05-15
 
