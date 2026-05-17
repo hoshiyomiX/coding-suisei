@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-#  stellar-frameworks v5.4.6
+#  stellar-frameworks v5.4.7
 #
 #  Install:  cd /home/z/my-project/stellar-frameworks && bash setup.sh
 #  Invoke:   Skill(command="stellar-frameworks")
@@ -28,7 +28,7 @@ fail()  { echo -e "${RED}[FAIL]${NC}  $*"; }
 
 echo ""
 echo "============================================"
-echo "  ☄️ stellar-frameworks v5.4.6"
+echo "  ☄️ stellar-frameworks v5.4.7"
 echo "============================================"
 echo ""
 
@@ -70,8 +70,8 @@ if [ -f "${INSTALL_DIR}/SKILL.md" ]; then
         ERRORS=$((ERRORS + 1))
     fi
 
-    if grep -q "v5.4.6" "${INSTALL_DIR}/SKILL.md"; then
-        ok "Version 5.4.6 confirmed"
+    if grep -q "v5.4.7" "${INSTALL_DIR}/SKILL.md"; then
+        ok "Version 5.4.7 confirmed"
     else
         fail "Version mismatch"
         ERRORS=$((ERRORS + 1))
@@ -104,13 +104,11 @@ else
     ERRORS=$((ERRORS + 1))
 fi
 
-# --- Self-heal: configure two-phase hook in multiple init files ---
+# --- Self-heal: configure hook in multiple init files ---
 BASHRC_MARKER="# stellar-frameworks auto-heal"
 TARGET_DIR="${PROJECT_ROOT}/stellar-frameworks"
-# Phase 1 (sync, ~50ms): skip git ops → ensures skill name in platform cache
-BASHRC_PHASE1="bash $TARGET_DIR/boot.sh --fast --install-only >/dev/null 2>&1"
-# Phase 2 (async, ~5-15s): git pull + re-copy → updates to latest version
-BASHRC_PHASE2="(bash $TARGET_DIR/boot.sh --install-only >/dev/null 2>&1 &)"
+# Single-phase: git pull first (updates boot.sh itself), then boot.sh --fast
+BASHRC_PHASE1="(cd $TARGET_DIR && git pull --ff-only --quiet 2>/dev/null); bash $TARGET_DIR/boot.sh --fast --install-only >/dev/null 2>&1"
 
 HOOK_TARGETS=("$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile")
 HOOKS_WRITTEN=0
@@ -121,14 +119,14 @@ for HOOK_FILE in "${HOOK_TARGETS[@]}"; do
       sed -i '/# stellar-frameworks auto-heal/d' "$HOOK_FILE"
       sed -i '/boot.sh/d' "$HOOK_FILE"
     fi
-    printf '\n%s\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_PHASE1" "$BASHRC_PHASE2" >> "$HOOK_FILE"
+    printf '\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_PHASE1" >> "$HOOK_FILE"
   else
-    printf '%s\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_PHASE1" "$BASHRC_PHASE2" > "$HOOK_FILE"
+    printf '%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_PHASE1" > "$HOOK_FILE"
   fi
   HOOKS_WRITTEN=$((HOOKS_WRITTEN + 1))
 done
 
-ok "Two-phase auto-heal hook written to $HOOKS_WRITTEN/3 init files (.bashrc, .bash_profile, .profile)"
+ok "Auto-heal hook written to $HOOKS_WRITTEN/3 init files (git-pull-then-boot)"
 
 # --- Popup preview: create + launch .zscripts/dev.sh ---
 ZSCRIPTS="${PROJECT_ROOT}/.zscripts"
@@ -207,7 +205,7 @@ fi
 echo ""
 echo "============================================"
 if [ $ERRORS -eq 0 ]; then
-    echo -e "${GREEN}  ☄️ v5.4.6 installed and ACTIVE — no restart needed!${NC}"
+    echo -e "${GREEN}  ☄️ v5.4.7 installed and ACTIVE — no restart needed!${NC}"
     echo ""
     echo "  Popup preview: LIVE on :3000 (immediate, no restart)."
     echo "  Invoke: Skill(command=\"stellar-frameworks\")"

@@ -1,5 +1,26 @@
 # Changelog
 
+## [5.4.7] — 2026-05-18
+
+### Fixed
+
+- **Critical: Stale snapshot version persists across sessions** — When a sandbox restores from repo.tar, both the stellar-frameworks REPO and the installed skill files are at the stale version (e.g. v5.3.0). The two-phase hook's Phase 1 (`--fast`) skipped git ops, but since both source and installed were the same stale version, no upgrade was detected. Phase 2 (async) ran the OLD boot.sh from the stale repo, creating a chicken-and-egg problem where the upgrade mechanism itself needed upgrading.
+
+  **Fix: Hook now runs `git pull` BEFORE `boot.sh`.** This ensures the local repo (including boot.sh itself) is updated to the latest version before any boot.sh logic executes. When the repo is already up-to-date, `git pull --ff-only` is nearly instant (~0.1s), so the performance impact is negligible. When the repo is stale, the pull takes ~5s but guarantees the latest version.
+
+- **Removed two-phase hook, replaced with single-phase pull-then-boot** — The two-phase approach (Phase 1: `--fast` sync, Phase 2: async `git pull`) was fundamentally flawed for the stale snapshot case. Phase 2 ran the OLD boot.sh (from the stale repo), and being async meant it might not complete before the agent's first `Skill()` call. The new single-phase hook is simpler, synchronous, and always correct.
+
+### Changed
+
+- **Hook format**: `(cd $TARGET_DIR && git pull --ff-only --quiet 2>/dev/null); bash $TARGET_DIR/boot.sh --fast --install-only >/dev/null 2>&1` — one line, no background process, no Phase 2.
+- **boot.sh gains MINIMUM_VERSION guard** — As a safety net for direct invocations (not via hook), boot.sh checks if the local repo version is below a hardcoded minimum and overrides `--fast` to force git pull. This handles edge cases where boot.sh is called manually on a stale repo.
+
+### Technical Notes
+
+- The stale snapshot problem originated from the platform's `git init` + `git add .` in `/start.sh`, which committed v5.3.0 skill files into the outer project's git history (commit `8b0069c`). Even though `.gitignore` now excludes `skills/stellar-frameworks/`, the pre-stop `repo.tar` is created from the working tree (not git HEAD), so any files on disk get snapshotted.
+- Chicken-and-egg problem: stale snapshot has old boot.sh → old boot.sh has no MINIMUM_VERSION → old boot.sh doesn't know it's stale → no upgrade. Solution: the HOOK (not boot.sh) does `git pull` first, updating boot.sh itself before execution.
+- Performance: `git pull --ff-only` on an already-up-to-date repo is ~0.1s (just a network check). On a stale repo, it's ~5s. This only affects `.bashrc`/`.bash_profile` sourcing, which happens once at session start.
+
 ## [5.4.6] — 2026-05-17
 
 ### Fixed

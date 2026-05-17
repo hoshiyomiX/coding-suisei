@@ -1,5 +1,5 @@
 #!/bin/bash
-# stellar-frameworks — Install, self-heal (git-tracked) v5.4.6
+# stellar-frameworks — Install, self-heal (git-tracked) v5.4.7
 # Pure skill installer + popup preview provider. No Next.js bootstrap.
 # Self-heal: after first run, adds two-phase hook to shell init files.
 # Popup preview: creates .zscripts/dev.sh AND launches it for immediate :3000 serving.
@@ -9,9 +9,26 @@
 #
 # Flags:
 #   --fast         Skip git operations (pure local copy ~50ms). Used by hook Phase 1.
+#                   OVERridden if local repo version < MINIMUM_VERSION (stale snapshot).
 #   --install-only Accepted for compatibility; no-op since v5.4.4.
 
 set -euo pipefail
+
+# ── Minimum version guard ──────────────────────────────────────────
+# If the LOCAL repo's SKILL.md version is below this threshold,
+# --fast mode is overridden to force git pull. This prevents stale
+# snapshots (e.g. v5.3.0 baked into repo.tar) from persisting.
+# Bump this whenever a new version is released.
+MINIMUM_VERSION="5.4.7"
+
+# Semantic version comparison: returns 0 (true) if $1 < $2
+version_lt() {
+  local a1 a2 a3 b1 b2 b3
+  IFS='.' read -r a1 a2 a3 <<< "$1"
+  IFS='.' read -r b1 b2 b3 <<< "$2"
+  [[ $a1 -lt $b1 ]] || { [[ $a1 -eq $b1 ]] && [[ $a2 -lt $b2 ]]; } || \
+  { [[ $a1 -eq $b1 ]] && [[ $a2 -eq $b2 ]] && [[ $a3 -lt $b3 ]]; }
+}
 
 # Parse flags
 FAST_MODE=false
@@ -57,9 +74,21 @@ ZSCRIPTS="$PROJECT_ROOT/.zscripts"
 DEV_SCRIPT="$ZSCRIPTS/dev.sh"
 DOWNLOAD_DIR="$PROJECT_ROOT/download"
 
+# ── 0b. Stale snapshot override ───────────────────────────────────
+# Even in --fast mode, if the local repo itself is outdated (from a stale
+# snapshot), we MUST git pull to get the latest version. Otherwise both
+# SOURCE and INSTALLED are the same stale version -> no upgrade detected.
+if $FAST_MODE && [ -f "$SOURCE_DIR/SKILL.md" ]; then
+  LOCAL_REPO_VER="$(grep -oP 'version:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "$SOURCE_DIR/SKILL.md" 2>/dev/null || echo "0.0.0")"
+  if version_lt "$LOCAL_REPO_VER" "$MINIMUM_VERSION"; then
+    echo "[boot] Local repo $LOCAL_REPO_VER < minimum $MINIMUM_VERSION — overriding --fast"
+    FAST_MODE=false
+  fi
+fi
+
 # ── 1. Auto-update: pull if remote has newer skill files ──────────
 # Non-fatal: any git failure just skips the update and proceeds.
-# SKIP entirely in --fast mode (used by hook Phase 1 to avoid race conditions).
+# SKIP in --fast mode UNLESS overridden by stale snapshot guard above.
 if [ -d "$SCRIPT_DIR/.git" ] && ! $FAST_MODE; then
   BRANCH="$(git -C "$SCRIPT_DIR" branch --show-current 2>/dev/null || echo "")"
   REMOTE="$(git -C "$SCRIPT_DIR" remote get-url origin 2>/dev/null || echo "")"
@@ -239,21 +268,21 @@ else
   echo "[boot] Popup preview already running"
 fi
 
-# ── 4. Self-heal persistence (two-phase hook) ─────────────────────
+# ── 4. Self-heal persistence (hook) ─────────────────────────────
 # Ensures stellar-frameworks auto-recovers after sandbox resets.
-# Writes two-phase hook to MULTIPLE shell init files for redundancy:
+# Writes hook to MULTIPLE shell init files for redundancy:
 #   $HOME/.bashrc       — interactive non-login shells
 #   $HOME/.bash_profile  — login shells (bash)
 #   $HOME/.profile       — login shells (POSIX fallback)
 #
-# Phase 1 (sync, ~50ms): --fast skips git ops → pure local copy.
-#   Ensures skill name is in platform cache immediately on session start.
-# Phase 2 (async, ~5-15s): no --fast → git fetch + pull → re-copy.
-#   Updates to latest version in background. Next Skill() call gets new version.
+# CRITICAL: The hook must git pull BEFORE running boot.sh.
+# In a stale snapshot, both the local repo AND boot.sh are outdated.
+# If boot.sh runs first (even without --fast), it uses the OLD logic.
+# By pulling first, we ensure boot.sh itself is updated before execution.
+# When already up-to-date, git pull --ff-only is nearly instant (~0.1s).
 
 BASHRC_MARKER="# stellar-frameworks auto-heal"
-BASHRC_PHASE1="bash $TARGET_DIR/boot.sh --fast --install-only >/dev/null 2>&1"
-BASHRC_PHASE2="(bash $TARGET_DIR/boot.sh --install-only >/dev/null 2>&1 &)"
+BASHRC_PHASE1="(cd $TARGET_DIR && git pull --ff-only --quiet 2>/dev/null); bash $TARGET_DIR/boot.sh --fast --install-only >/dev/null 2>&1"
 
 # Clean up stale hook from wrong path (v5.4.1 bug)
 STALE_BASHRC="$PROJECT_ROOT/.bashrc"
@@ -275,14 +304,14 @@ for HOOK_FILE in "${HOOK_TARGETS[@]}"; do
       sed -i '/# stellar-frameworks auto-heal/d' "$HOOK_FILE"
       sed -i '/boot.sh/d' "$HOOK_FILE"
     fi
-    printf '\n%s\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_PHASE1" "$BASHRC_PHASE2" >> "$HOOK_FILE"
+    printf '\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_PHASE1" >> "$HOOK_FILE"
   else
-    printf '%s\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_PHASE1" "$BASHRC_PHASE2" > "$HOOK_FILE"
+    printf '%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_PHASE1" > "$HOOK_FILE"
   fi
   HOOKS_WRITTEN=$((HOOKS_WRITTEN + 1))
 done
 
-echo "[boot] Two-phase auto-heal hook written to $HOOKS_WRITTEN/3 init files"
+echo "[boot] Auto-heal hook written to $HOOKS_WRITTEN/3 init files (git-pull-then-boot)"
 
 # ── 5. Post-install notice ─────────────────────────────────────
 # Platform reads SKILL.md from disk on each Skill() call (NOT cached).
@@ -291,7 +320,7 @@ echo "[boot] Two-phase auto-heal hook written to $HOOKS_WRITTEN/3 init files"
 if $NEED_INSTALL; then
   echo ""
   echo "╔══════════════════════════════════════════════════════════════╗"
-  echo "║  ☄️ v5.4.6 installed and ACTIVE — no restart needed!         ║"
+  echo "║  ☄️ v5.4.7 installed and ACTIVE — no restart needed!         ║"
   echo "║  Popup preview: LIVE on :3000 (immediate, no restart).     ║"
   echo "║  Invoke: Skill(command=\"stellar-frameworks\")                 ║"
   echo "║  Auto-heal: two-phase hook in 3 init files.                  ║"
