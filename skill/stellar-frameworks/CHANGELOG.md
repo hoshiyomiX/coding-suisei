@@ -1,5 +1,31 @@
 # Changelog
 
+## [5.4.4] — 2026-05-17
+
+### Removed
+
+- **Dev server section from boot.sh** — Entire section (splash deploy, Next.js project bootstrap, dev server startup) removed from boot.sh (was lines 221-383). boot.sh is now a pure skill installer/self-heal with no web development responsibilities. This eliminates 3 critical conflicts with the platform's `fullstack-dev` skill: (1) init-fullstack.sh sabotage via `.zscripts/dev.sh` detection, (2) port 3000 collision, (3) filesystem pollution where boot.sh's minimal Next.js files prevented fullstack-dev's proper tarball extraction.
+
+### Fixed
+
+- **Version stale bug on sandbox reset** — The `--fast` flag skipped all git operations, which meant after a sandbox snapshot restore, the installed skill could never update from the stale snapshot version to the latest remote version. Fixed with **two-phase auto-heal hook**: Phase 1 (sync, ~50ms) runs `--fast` to ensure skill name is in platform cache immediately; Phase 2 (async, ~5-15s) runs without `--fast` to perform `git fetch + pull` and re-copy latest version. Next `Skill()` call reads the updated version from disk.
+- **`fa51c75` missing version field** — Historical: the first v5.3.0 commit had no `version:` field in SKILL.md frontmatter, causing boot.sh to read `0.0.0` as the version. Fixed in subsequent commit `a825c6a` (already on remote).
+
+### Changed
+
+- **Auto-heal hook: single-phase → two-phase** — Hook now writes two commands to each init file instead of one. Phase 1 is synchronous (completes before platform scans), Phase 2 runs in background (updates version asynchronously).
+- **`--install-only` flag is now a no-op** — Previously controlled dev server skip. Since dev server section is removed, the flag is accepted for backwards compatibility but does nothing.
+
+### Why
+
+Three discoveries drove this release:
+
+1. **fullstack-dev is the platform's official web development handler** — It provides a proper Next.js 16 project with shadcn/ui, Prisma, and all dependencies. boot.sh's minimal Next.js bootstrap (5 deps, no UI framework) was redundant AND harmful: when boot.sh created `.zscripts/dev.sh`, fullstack-dev's `init-fullstack.sh` would detect it and skip its own proper initialization, leaving the user with a broken skeleton instead of a full project.
+
+2. **`--fast` mode created a version trap** — The flag was introduced to avoid race conditions (git fetch delay vs platform scan timing). But the trade-off was permanent: after a sandbox snapshot restore, `--fast` could only copy the stale snapshot version, never pulling the latest. The two-phase approach eliminates this trade-off: skill name is available immediately, version updates happen in background.
+
+3. **`Skill()` reads SKILL.md from disk on each call** — This platform behavior means Phase 2's background update takes effect on the very next `Skill()` invocation. No restart needed, no cache to invalidate.
+
 ## [5.4.3] — 2026-05-15
 
 ### Fixed

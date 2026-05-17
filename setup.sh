@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-#  stellar-frameworks v5.4.3
+#  stellar-frameworks v5.4.4
 #
 #  Install:  cd /home/z/my-project/stellar-frameworks && bash setup.sh
 #  Invoke:   Skill(command="stellar-frameworks")
@@ -13,7 +13,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="${SCRIPT_DIR}/skill/stellar-frameworks"
-# IMPL-003: Install to project root's skills/ dir where Skill system loads from
 PROJECT_ROOT="${PROJECT_ROOT:-/home/z/my-project}"
 INSTALL_DIR="${PROJECT_ROOT}/skills/stellar-frameworks"
 
@@ -29,7 +28,7 @@ fail()  { echo -e "${RED}[FAIL]${NC}  $*"; }
 
 echo ""
 echo "============================================"
-echo "  ☄️ stellar-frameworks v5.4.3"
+echo "  ☄️ stellar-frameworks v5.4.4"
 echo "============================================"
 echo ""
 
@@ -71,8 +70,8 @@ if [ -f "${INSTALL_DIR}/SKILL.md" ]; then
         ERRORS=$((ERRORS + 1))
     fi
 
-    if grep -q "v5.4.3" "${INSTALL_DIR}/SKILL.md"; then
-        ok "Version 5.4.3 confirmed"
+    if grep -q "v5.4.4" "${INSTALL_DIR}/SKILL.md"; then
+        ok "Version 5.4.4 confirmed"
     else
         fail "Version mismatch"
         ERRORS=$((ERRORS + 1))
@@ -105,13 +104,14 @@ else
     ERRORS=$((ERRORS + 1))
 fi
 
-# --- Self-heal: configure hooks in multiple init files ---
+# --- Self-heal: configure two-phase hook in multiple init files ---
 BASHRC_MARKER="# stellar-frameworks auto-heal"
 TARGET_DIR="${PROJECT_ROOT}/stellar-frameworks"
-# v5.4.3: Synchronous + --fast (no git ops, no background)
-BASHRC_CMD="bash $TARGET_DIR/boot.sh --fast --install-only >/dev/null 2>&1"
+# Phase 1 (sync, ~50ms): skip git ops → ensures skill name in platform cache
+BASHRC_PHASE1="bash $TARGET_DIR/boot.sh --fast --install-only >/dev/null 2>&1"
+# Phase 2 (async, ~5-15s): git pull + re-copy → updates to latest version
+BASHRC_PHASE2="(bash $TARGET_DIR/boot.sh --install-only >/dev/null 2>&1 &)"
 
-# Write to all three init files for redundancy
 HOOK_TARGETS=("$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile")
 HOOKS_WRITTEN=0
 
@@ -121,14 +121,14 @@ for HOOK_FILE in "${HOOK_TARGETS[@]}"; do
       sed -i '/# stellar-frameworks auto-heal/d' "$HOOK_FILE"
       sed -i '/boot.sh/d' "$HOOK_FILE"
     fi
-    printf '\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" >> "$HOOK_FILE"
+    printf '\n%s\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_PHASE1" "$BASHRC_PHASE2" >> "$HOOK_FILE"
   else
-    printf '%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" > "$HOOK_FILE"
+    printf '%s\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_PHASE1" "$BASHRC_PHASE2" > "$HOOK_FILE"
   fi
   HOOKS_WRITTEN=$((HOOKS_WRITTEN + 1))
 done
 
-ok "Auto-heal hook written to $HOOKS_WRITTEN/3 init files (.bashrc, .bash_profile, .profile)"
+ok "Two-phase auto-heal hook written to $HOOKS_WRITTEN/3 init files (.bashrc, .bash_profile, .profile)"
 
 # Clean up stale hook from wrong path (v5.4.1 bug)
 STALE_BASHRC="$PROJECT_ROOT/.bashrc"
@@ -143,7 +143,7 @@ fi
 echo ""
 echo "============================================"
 if [ $ERRORS -eq 0 ]; then
-    echo -e "${GREEN}  ☄️ v5.4.3 installed and ACTIVE — no restart needed!${NC}"
+    echo -e "${GREEN}  ☄️ v5.4.4 installed and ACTIVE — no restart needed!${NC}"
     echo ""
     echo "  Skill() reads SKILL.md from disk — updates are instant."
     echo "  Invoke: Skill(command=\"stellar-frameworks\")"

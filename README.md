@@ -4,7 +4,7 @@
 
 **Universal task workflow for LLM agents**
 
-[![Version](https://img.shields.io/badge/version-5.4.3-blue.svg)](skill/stellar-frameworks/CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.4.4-blue.svg)](skill/stellar-frameworks/CHANGELOG.md)
 
 Structures ALL tasks — coding and non-coding — as a **phase state machine** with traceability IDs, artifact templates, source state verification, and file-based agent memory. For coding tasks, full phases with verification. For non-coding tasks, phases run internally (Minimal tier) but the framework still activates for traceability. Designed for the [z.ai](https://z.ai) platform.
 
@@ -24,7 +24,7 @@ IDLE → SPECIFY → PLAN → IMPLEMENT → VERIFY → DELIVER
 cd ~/my-project && git clone https://github.com/hoshiyomiX/stellar-frameworks.git 2>/dev/null; bash stellar-frameworks/boot.sh
 ```
 
-Invoke: `Skill(command="stellar-frameworks")` — look for `☄️ STELLAR · v5.4.3 · ACTIVE`.
+Invoke: `Skill(command="stellar-frameworks")` — look for `☄️ STELLAR · v5.4.4 · ACTIVE`.
 
 ---
 
@@ -127,7 +127,7 @@ Recovery mechanism:
 | **Fresh sandbox** (first time) | Run the Quick Start one-liner | Clones repo, installs skill files to `skills/`, writes auto-heal hook to `$HOME/.bashrc` |
 | **Mid-session** (just installed, no restart) | Read `skills/stellar-frameworks/SKILL.md` directly | `Skill()` caches at session start, but `Read()` accesses the same file. Content is identical — follow the instructions manually. |
 | **After install, same session** | **Restart the session** | Platform re-scans `skills/` at session start — `Skill()` works natively |
-| **Sandbox reset** (inactive hours) | `$HOME/.bashrc` hook auto-triggers (synchronous, `--fast` mode) | Every new shell opens → `boot.sh --fast --install-only` runs synchronously (~0.1s) → skill files restored BEFORE platform scans `skills/` |
+| **Sandbox reset** (inactive hours) | Two-phase hook auto-triggers | Phase 1 (sync, ~0.05s): `boot.sh --fast` restores skill name BEFORE platform scans. Phase 2 (async, ~5-15s): `boot.sh` pulls latest version + re-copies. Next `Skill()` call gets updated version. |
 
 **Important**: After running the one-liner, you **must restart the session** for the skill to appear in `available_skills`. This is a platform constraint — skills are loaded once at session start and not refreshed mid-session. The `$HOME/.bashrc` auto-heal hook ensures subsequent sessions recover automatically even if the sandbox resets.
 
@@ -185,6 +185,7 @@ stellar-frameworks/
 
 | Version | Summary |
 |---------|---------|
+| [**v5.4.4**](skill/stellar-frameworks/CHANGELOG.md) | Remove dev server from boot.sh (conflicts with fullstack-dev). Two-phase hook fixes version stale bug. Pure skill installer. |
 | [**v5.4.3**](skill/stellar-frameworks/CHANGELOG.md) | Critical fix: race condition in .bashrc hook (async + git ops). Now synchronous + `--fast` (no git, ~0.1s). Stale hook cleanup. |
 | [**v5.4.1**](skill/stellar-frameworks/CHANGELOG.md) | Source Availability & Documentation Check (SADC) — mandatory research before SPECIFY. Prevents building from assumptions. |
 | [**v5.4.0**](skill/stellar-frameworks/CHANGELOG.md) | Adaptive complexity tiers — Minimal/Simple/Standard/Complex. All phases always run, no SKIP. Non-coding tasks use Minimal tier (phases internal, only IMPLEMENT visible). |

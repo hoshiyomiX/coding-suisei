@@ -1,25 +1,27 @@
 #!/bin/bash
-# stellar-frameworks — Install, self-heal, and bootstrap (git-tracked) v5.4.3
-# Works from anywhere: auto-clones repo if missing, then installs + bootstraps.
-# Self-heal: after first run, adds .bashrc hook so future session resets auto-recover.
+# stellar-frameworks — Install, self-heal (git-tracked) v5.4.4
+# Pure skill installer. No dev server, no Next.js bootstrap.
+# Self-heal: after first run, adds two-phase hook to shell init files.
 # Usage: bash <(curl -sL https://raw.githubusercontent.com/hoshiyomiX/stellar-frameworks/main/boot.sh)
 #    or: bash ~/my-project/stellar-frameworks/boot.sh
 #    or: bash stellar-frameworks/boot.sh [--install-only] [--fast]
+#
+# Flags:
+#   --fast         Skip git operations (pure local copy ~50ms). Used by hook Phase 1.
+#   --install-only Accepted for compatibility; dev server section removed in v5.4.4.
 
 set -euo pipefail
 
 # Parse flags
-INSTALL_ONLY=false
 FAST_MODE=false
 for arg in "$@"; do
   case "$arg" in
-    --install-only) INSTALL_ONLY=true ;;
-    --fast)         FAST_MODE=true ;;
+    --fast) FAST_MODE=true ;;
+    --install-only) : ;; # no-op: kept for backwards compatibility
   esac
 done
 
-# ── 0. Auto-clone: if running from a one-liner, SCRIPT_DIR is a temp dir — detect and clone ──
-# Determine if we're running from a temp dir (piped via curl) vs a local repo
+# ── 0. Auto-clone: if running from a one-liner, SCRIPT_DIR is a temp dir ──
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_URL="https://github.com/hoshiyomiX/stellar-frameworks.git"
 PROJECT_ROOT="${PROJECT_ROOT:-/home/z/my-project}"
@@ -36,46 +38,38 @@ if [ ! -f "$TARGET_DIR/boot.sh" ]; then
   echo "[boot] Cloned successfully"
   SCRIPT_DIR="$TARGET_DIR"
 elif [ "$(basename "$SCRIPT_DIR")" != "stellar-frameworks" ]; then
-  # SCRIPT_DIR is inside a temp dir (curl pipe), but repo exists — redirect
   SCRIPT_DIR="$TARGET_DIR"
 fi
 
 SOURCE_DIR="$SCRIPT_DIR/skill/stellar-frameworks"
 
-# IMPL-002: Detect project root — repo may be a subdirectory of /home/z/my-project/
+# Detect project root — repo may be a subdirectory of /home/z/my-project/
 if [ -f "$PROJECT_ROOT/package.json" ] && [ -d "$PROJECT_ROOT/src/app" ]; then
   : # PROJECT_ROOT explicitly set or detected
 else
-  # Fallback: assume repo is inside project root (one level up)
   PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 fi
 
-# Install skill to the project root's skills/ directory (where Skill system loads from)
 INSTALL_DIR="$PROJECT_ROOT/skills/stellar-frameworks"
 OBSOLETE_DIR="$PROJECT_ROOT/skills/stellar-coding-agent"
-ZSCRIPTS="$PROJECT_ROOT/.zscripts"
-DEV_SCRIPT="$ZSCRIPTS/dev.sh"
 
-# ── 0. Auto-update: pull if remote has newer skill files ──────────
+# ── 1. Auto-update: pull if remote has newer skill files ──────────
 # Non-fatal: any git failure just skips the update and proceeds.
-# SKIP entirely in --fast mode (used by .bashrc auto-heal to avoid race conditions).
+# SKIP entirely in --fast mode (used by hook Phase 1 to avoid race conditions).
 if [ -d "$SCRIPT_DIR/.git" ] && ! $FAST_MODE; then
   BRANCH="$(git -C "$SCRIPT_DIR" branch --show-current 2>/dev/null || echo "")"
   REMOTE="$(git -C "$SCRIPT_DIR" remote get-url origin 2>/dev/null || echo "")"
 
   if [ -n "$BRANCH" ] && [ -n "$REMOTE" ]; then
-    # Fetch remote refs (network errors are non-fatal)
     if git -C "$SCRIPT_DIR" fetch origin "$BRANCH" --quiet 2>/dev/null; then
       LOCAL="$(git -C "$SCRIPT_DIR" rev-parse HEAD 2>/dev/null)"
       REMOTE_SHA="$(git -C "$SCRIPT_DIR" rev-parse "origin/$BRANCH" 2>/dev/null)"
 
       if [ "$LOCAL" != "$REMOTE_SHA" ]; then
-        # Check if local is behind (fast-forward possible)
         BEHIND="$(git -C "$SCRIPT_DIR" rev-list --count HEAD.."origin/$BRANCH" 2>/dev/null || echo "0")"
         AHEAD="$(git -C "$SCRIPT_DIR" rev-list --count "origin/$BRANCH"..HEAD 2>/dev/null || echo "0")"
 
         if [ "$AHEAD" = "0" ] && [ "$BEHIND" -gt 0 ]; then
-          # We're behind, not diverged — check for dirty working tree
           if [ -z "$(git -C "$SCRIPT_DIR" status --porcelain -- skill/ setup.sh boot.sh README.md 2>/dev/null)" ]; then
             OLD_VER="$(grep -oP 'version:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "$SOURCE_DIR/SKILL.md" 2>/dev/null || echo "?")"
             if git -C "$SCRIPT_DIR" pull --ff-only --quiet origin "$BRANCH" 2>/dev/null; then
@@ -91,12 +85,11 @@ if [ -d "$SCRIPT_DIR/.git" ] && ! $FAST_MODE; then
           echo "[boot] Skipping update — local commits ahead of remote (diverged)"
         fi
       fi
-    # fetch failed (network/offline) — silent, not an error
     fi
   fi
 fi
 
-# ── 1. Install / self-heal: copy git-tracked skill/ → platform skills/ ──
+# ── 2. Install / self-heal: copy git-tracked skill/ → platform skills/ ──
 NEED_INSTALL=false
 if [ ! -f "$INSTALL_DIR/SKILL.md" ]; then
   NEED_INSTALL=true
@@ -109,7 +102,7 @@ else
   fi
 fi
 
-# ── 1b. Clean up predecessor skill (stellar-coding-agent v5.0.0) ──
+# Clean up predecessor skill (stellar-coding-agent v5.0.0)
 if [ -d "$OBSOLETE_DIR" ]; then
   rm -rf "${OBSOLETE_DIR:?}"
   echo "[boot] Removed predecessor skill: stellar-coding-agent"
@@ -159,20 +152,21 @@ else
   echo "[boot] Skill files OK"
 fi
 
-# ── 2. Self-heal persistence (multi-layer) ─────────────────────
+# ── 3. Self-heal persistence (two-phase hook) ─────────────────────
 # Ensures stellar-frameworks auto-recovers after sandbox resets.
-# Writes hook to MULTIPLE shell init files for redundancy:
+# Writes two-phase hook to MULTIPLE shell init files for redundancy:
 #   $HOME/.bashrc       — interactive non-login shells
 #   $HOME/.bash_profile  — login shells (bash)
 #   $HOME/.profile       — login shells (POSIX fallback)
-# Sandbox resets may wipe some but rarely all three.
 #
-# Uses --fast to skip git operations (pure local copy ~60ms).
-# Uses --install-only to skip dev server startup.
-# Synchronous (no &) — completes before platform processes continue.
+# Phase 1 (sync, ~50ms): --fast skips git ops → pure local copy.
+#   Ensures skill name is in platform cache immediately on session start.
+# Phase 2 (async, ~5-15s): no --fast → git fetch + pull → re-copy.
+#   Updates to latest version in background. Next Skill() call gets new version.
 
 BASHRC_MARKER="# stellar-frameworks auto-heal"
-BASHRC_CMD="bash $TARGET_DIR/boot.sh --fast --install-only >/dev/null 2>&1"
+BASHRC_PHASE1="bash $TARGET_DIR/boot.sh --fast --install-only >/dev/null 2>&1"
+BASHRC_PHASE2="(bash $TARGET_DIR/boot.sh --install-only >/dev/null 2>&1 &)"
 
 # Clean up stale hook from wrong path (v5.4.1 bug)
 STALE_BASHRC="$PROJECT_ROOT/.bashrc"
@@ -188,196 +182,35 @@ HOOK_TARGETS=("$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile")
 HOOKS_WRITTEN=0
 
 for HOOK_FILE in "${HOOK_TARGETS[@]}"; do
-  # Remove any existing hooks (including old async variants with &)
+  # Remove any existing hooks (including old single-phase and async variants)
   if [ -f "$HOOK_FILE" ]; then
     if grep -qF "boot.sh" "$HOOK_FILE" 2>/dev/null; then
       sed -i '/# stellar-frameworks auto-heal/d' "$HOOK_FILE"
       sed -i '/boot.sh/d' "$HOOK_FILE"
     fi
-    printf '\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" >> "$HOOK_FILE"
+    printf '\n%s\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_PHASE1" "$BASHRC_PHASE2" >> "$HOOK_FILE"
   else
-    printf '%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_CMD" > "$HOOK_FILE"
+    printf '%s\n%s\n%s\n' "$BASHRC_MARKER" "$BASHRC_PHASE1" "$BASHRC_PHASE2" > "$HOOK_FILE"
   fi
   HOOKS_WRITTEN=$((HOOKS_WRITTEN + 1))
 done
 
-echo "[boot] Auto-heal hook written to $HOOKS_WRITTEN/3 init files"
+echo "[boot] Two-phase auto-heal hook written to $HOOKS_WRITTEN/3 init files"
 
-# ── 3. Post-install notice ─────────────────────────────────────
+# ── 4. Post-install notice ─────────────────────────────────────
 # Platform reads SKILL.md from disk on each Skill() call (NOT cached).
 # So updates are effective immediately — no restart needed.
 
-if $NEED_INSTALL && ! $INSTALL_ONLY; then
+if $NEED_INSTALL; then
   echo ""
   echo "╔══════════════════════════════════════════════════════════════╗"
-  echo "║  ✅ v5.4.3 installed and ACTIVE — no restart needed!         ║"
+  echo "║  ☄️ v5.4.4 installed and ACTIVE — no restart needed!         ║"
   echo "║  Skill() reads from disk — updates are instant.              ║"
   echo "║  Invoke: Skill(command=\"stellar-frameworks\")                 ║"
-  echo "║  Auto-heal: hook written to 3 init files for resilience.    ║"
+  echo "║  Auto-heal: two-phase hook in 3 init files.                  ║"
   echo "╚══════════════════════════════════════════════════════════════╝"
   echo ""
 fi
 
-# ── 4. Deploy custom splash ──────────────────────────────────────
-# Assets are gitignored — only exist if previously bootstrapped
-SPLASH="$INSTALL_DIR/assets/page.tsx"
-# IMPL-002: TARGET must point to the Next.js project, not the repo dir
-TARGET="$PROJECT_ROOT/src/app/page.tsx"
-
-if [ -f "$SPLASH" ]; then
-  mkdir -p "$(dirname "$TARGET")"
-  cp "$SPLASH" "$TARGET"
-  echo "[boot] Splash deployed → src/app/page.tsx"
-fi
-
-# ── 5. Dev server (skip with --install-only) ─────────────────────
-if $INSTALL_ONLY; then
-  echo "[boot] Skipping dev server (--install-only)"
-  exit 0
-fi
-
-if curl -s --connect-timeout 2 "http://localhost:3000" >/dev/null 2>&1; then
-  echo "[boot] Dev server already running on :3000"
-  exit 0
-fi
-
-# Auto-bootstrap: create dev.sh if missing
-if [ ! -f "$DEV_SCRIPT" ]; then
-  echo "[boot] No .zscripts/dev.sh — auto-bootstrapping Next.js project..."
-  mkdir -p "$ZSCRIPTS"
-
-  # Create dev.sh (uses bun, sandbox standard)
-  cat > "$DEV_SCRIPT" << 'DEVSH'
-#!/bin/bash
-cd /home/z/my-project
-exec bun run dev
-DEVSH
-  chmod +x "$DEV_SCRIPT"
-  echo "[boot] Created .zscripts/dev.sh"
-
-  # Initialize Next.js project if no package.json exists
-  if [ ! -f "$PROJECT_ROOT/package.json" ]; then
-    echo "[boot] Initializing Next.js project (this may take a moment)..."
-    cd "$PROJECT_ROOT"
-
-    # Create minimal package.json with Next.js + React + TypeScript
-    cat > package.json << 'PKGJSON'
-{
-  "name": "my-project",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
-  }
-}
-PKGJSON
-
-    # Install core dependencies
-    bun add next@latest react@latest react-dom@latest 2>&1 | tail -1
-    bun add -d typescript @types/react @types/node @types/react-dom tailwindcss @tailwindcss/postcss postcss 2>&1 | tail -1
-
-    # Create tsconfig.json
-    cat > tsconfig.json << 'TSCONFIG'
-{
-  "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "preserve",
-    "incremental": true,
-    "plugins": [{ "name": "next" }],
-    "paths": { "@/*": ["./src/*"] }
-  },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
-}
-TSCONFIG
-
-    # Create next.config.ts
-    cat > next.config.ts << 'NEXTCFG'
-import type { NextConfig } from "next";
-const nextConfig: NextConfig = {};
-export default nextConfig;
-NEXTCFG
-
-    # Create postcss.config.mjs (Tailwind v4)
-    cat > postcss.config.mjs << 'POSTCSS'
-const config = {
-  plugins: ["@tailwindcss/postcss"],
-};
-export default config;
-POSTCSS
-
-    # Create src/app/layout.tsx
-    mkdir -p src/app
-    cat > src/app/layout.tsx << 'LAYOUT'
-import type { Metadata } from "next";
-import "./globals.css";
-
-export const metadata: Metadata = {
-  title: "My Project",
-  description: "Created with stellar-frameworks",
-};
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
-      <body>{children}</body>
-    </html>
-  );
-}
-LAYOUT
-
-    # Create src/app/globals.css
-    cat > src/app/globals.css << 'CSS'
-@import "tailwindcss";
-CSS
-
-    # Create src/app/page.tsx only if not already deployed by splash
-    if [ ! -f "$PROJECT_ROOT/src/app/page.tsx" ]; then
-      cat > src/app/page.tsx << 'PAGE'
-export default function Home() {
-  return (
-    <main className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Ready to build</h1>
-        <p className="text-gray-500">Edit <code>src/app/page.tsx</code> to get started.</p>
-      </div>
-    </main>
-  );
-}
-PAGE
-    fi
-
-    echo "[boot] Next.js project initialized"
-  fi
-fi
-
-# Start dev server
-echo "[boot] Starting dev server..."
-DATABASE_URL="${DATABASE_URL:-file:${PROJECT_ROOT}/db/custom.db}"
-(
-  cd "$PROJECT_ROOT"
-  nohup bash "$DEV_SCRIPT" >>"$ZSCRIPTS/dev.log" 2>&1 </dev/null &
-  echo "$!" >"$ZSCRIPTS/dev.pid"
-)
-for i in $(seq 1 30); do
-  if curl -s --connect-timeout 2 "http://localhost:3000" >/dev/null 2>&1; then
-    echo "[boot] Ready on :3000"
-    exit 0
-  fi
-  sleep 1
-done
-echo "[boot] WARNING: health check timed out — check $ZSCRIPTS/dev.log for errors"
-exit 1
+# ── 5. Done ──
+exit 0
