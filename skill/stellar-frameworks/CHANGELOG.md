@@ -1,5 +1,21 @@
 # Changelog
 
+## [5.4.5] — 2026-05-17
+
+### Added
+
+- **Popup preview auto-provider via `.zscripts/dev.sh`** — boot.sh now automatically creates `.zscripts/dev.sh` if it doesn't exist. This enables the platform's popup preview (Caddy :81 → proxy → :3000) without needing fullstack-dev. The dev.sh is smart: if a Next.js project exists (package.json with "next" dep), it delegates to `bun run dev`; otherwise it serves `/download/` as static files via Python http.server. Activates on next session start (platform's start.sh auto-executes dev.sh).
+
+### Changed
+
+- **boot.sh description** — Updated header comment to include "popup preview provider" and clarify the script's scope: skill installer + popup preview enabler.
+
+### Technical Notes
+
+- The `.zscripts/dev.sh` created by boot.sh is idempotent — it's only created if missing, never overwritten (preserves any externally-created dev.sh).
+- fullstack-dev's `init-fullstack.sh` detects existing dev.sh and skips tarball download, running dev.sh instead. Since our dev.sh is smart (detects Next.js), this coexistence works: if fullstack-dev has set up a Next.js project, our dev.sh delegates to `bun run dev`. If not, it serves static files.
+- To force a clean fullstack-dev setup: `rm .zscripts/dev.sh` then invoke fullstack-dev.
+
 ## [5.4.4] — 2026-05-17
 
 ### Removed

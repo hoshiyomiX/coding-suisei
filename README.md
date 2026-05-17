@@ -4,7 +4,7 @@
 
 **Universal task workflow for LLM agents**
 
-[![Version](https://img.shields.io/badge/version-5.4.4-blue.svg)](skill/stellar-frameworks/CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.4.5-blue.svg)](skill/stellar-frameworks/CHANGELOG.md)
 
 Structures ALL tasks — coding and non-coding — as a **phase state machine** with traceability IDs, artifact templates, source state verification, and file-based agent memory. For coding tasks, full phases with verification. For non-coding tasks, phases run internally (Minimal tier) but the framework still activates for traceability. Designed for the [z.ai](https://z.ai) platform.
 
@@ -24,7 +24,7 @@ IDLE → SPECIFY → PLAN → IMPLEMENT → VERIFY → DELIVER
 cd ~/my-project && git clone https://github.com/hoshiyomiX/stellar-frameworks.git 2>/dev/null; bash stellar-frameworks/boot.sh
 ```
 
-Invoke: `Skill(command="stellar-frameworks")` — look for `☄️ STELLAR · v5.4.4 · ACTIVE`.
+Invoke: `Skill(command="stellar-frameworks")` — look for `☄️ STELLAR · v5.4.5 · ACTIVE`.
 
 ---
 
@@ -185,7 +185,7 @@ stellar-frameworks/
 
 | Version | Summary |
 |---------|---------|
-| [**v5.4.4**](skill/stellar-frameworks/CHANGELOG.md) | Remove dev server from boot.sh (conflicts with fullstack-dev). Two-phase hook fixes version stale bug. Pure skill installer. |
+| [**v5.4.5**](skill/stellar-frameworks/CHANGELOG.md) | Auto popup preview via .zscripts/dev.sh (smart: Next.js or static). Persistent across sessions. |
 | [**v5.4.3**](skill/stellar-frameworks/CHANGELOG.md) | Critical fix: race condition in .bashrc hook (async + git ops). Now synchronous + `--fast` (no git, ~0.1s). Stale hook cleanup. |
 | [**v5.4.1**](skill/stellar-frameworks/CHANGELOG.md) | Source Availability & Documentation Check (SADC) — mandatory research before SPECIFY. Prevents building from assumptions. |
 | [**v5.4.0**](skill/stellar-frameworks/CHANGELOG.md) | Adaptive complexity tiers — Minimal/Simple/Standard/Complex. All phases always run, no SKIP. Non-coding tasks use Minimal tier (phases internal, only IMPLEMENT visible). |

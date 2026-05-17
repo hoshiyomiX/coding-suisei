@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-#  stellar-frameworks v5.4.4
+#  stellar-frameworks v5.4.5
 #
 #  Install:  cd /home/z/my-project/stellar-frameworks && bash setup.sh
 #  Invoke:   Skill(command="stellar-frameworks")
@@ -28,7 +28,7 @@ fail()  { echo -e "${RED}[FAIL]${NC}  $*"; }
 
 echo ""
 echo "============================================"
-echo "  ☄️ stellar-frameworks v5.4.4"
+echo "  ☄️ stellar-frameworks v5.4.5"
 echo "============================================"
 echo ""
 
@@ -70,8 +70,8 @@ if [ -f "${INSTALL_DIR}/SKILL.md" ]; then
         ERRORS=$((ERRORS + 1))
     fi
 
-    if grep -q "v5.4.4" "${INSTALL_DIR}/SKILL.md"; then
-        ok "Version 5.4.4 confirmed"
+    if grep -q "v5.4.5" "${INSTALL_DIR}/SKILL.md"; then
+        ok "Version 5.4.5 confirmed"
     else
         fail "Version mismatch"
         ERRORS=$((ERRORS + 1))
@@ -143,7 +143,7 @@ fi
 echo ""
 echo "============================================"
 if [ $ERRORS -eq 0 ]; then
-    echo -e "${GREEN}  ☄️ v5.4.4 installed and ACTIVE — no restart needed!${NC}"
+    echo -e "${GREEN}  ☄️ v5.4.5 installed and ACTIVE — no restart needed!${NC}"
     echo ""
     echo "  Skill() reads SKILL.md from disk — updates are instant."
     echo "  Invoke: Skill(command=\"stellar-frameworks\")"

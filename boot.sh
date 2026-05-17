@@ -1,14 +1,15 @@
 #!/bin/bash
-# stellar-frameworks — Install, self-heal (git-tracked) v5.4.4
-# Pure skill installer. No dev server, no Next.js bootstrap.
+# stellar-frameworks — Install, self-heal (git-tracked) v5.4.5
+# Pure skill installer + popup preview provider. No Next.js bootstrap.
 # Self-heal: after first run, adds two-phase hook to shell init files.
+# Popup preview: creates .zscripts/dev.sh for static file serving on :3000.
 # Usage: bash <(curl -sL https://raw.githubusercontent.com/hoshiyomiX/stellar-frameworks/main/boot.sh)
 #    or: bash ~/my-project/stellar-frameworks/boot.sh
 #    or: bash stellar-frameworks/boot.sh [--install-only] [--fast]
 #
 # Flags:
 #   --fast         Skip git operations (pure local copy ~50ms). Used by hook Phase 1.
-#   --install-only Accepted for compatibility; dev server section removed in v5.4.4.
+#   --install-only Accepted for compatibility; no-op since v5.4.4.
 
 set -euo pipefail
 
@@ -52,6 +53,9 @@ fi
 
 INSTALL_DIR="$PROJECT_ROOT/skills/stellar-frameworks"
 OBSOLETE_DIR="$PROJECT_ROOT/skills/stellar-coding-agent"
+ZSCRIPTS="$PROJECT_ROOT/.zscripts"
+DEV_SCRIPT="$ZSCRIPTS/dev.sh"
+DOWNLOAD_DIR="$PROJECT_ROOT/download"
 
 # ── 1. Auto-update: pull if remote has newer skill files ──────────
 # Non-fatal: any git failure just skips the update and proceeds.
@@ -152,7 +156,50 @@ else
   echo "[boot] Skill files OK"
 fi
 
-# ── 3. Self-heal persistence (two-phase hook) ─────────────────────
+# ── 3. Popup preview: ensure .zscripts/dev.sh exists ──────────────
+# The platform's start.sh auto-executes .zscripts/dev.sh if it exists.
+# This provides popup preview (Caddy :81 → proxy → :3000) without fullstack-dev.
+#
+# Smart dev.sh behavior:
+#   - If Next.js project exists (package.json with "next" dep) → bun run dev
+#   - Otherwise → python3 static server serving /download/ on :3000
+#
+# NOTE: fullstack-dev's init-fullstack.sh also checks for dev.sh existence.
+# If dev.sh is present, init-fullstack.sh skips tarball download and runs it.
+# This is intentional — our dev.sh handles both cases intelligently.
+# To force fullstack-dev setup: rm .zscripts/dev.sh && invoke fullstack-dev.
+
+DEV_SCRIPT_MARKER="# stellar-frameworks dev server"
+if [ ! -f "$DEV_SCRIPT" ]; then
+  echo "[boot] Creating dev.sh for popup preview..."
+  mkdir -p "$ZSCRIPTS"
+  cat > "$DEV_SCRIPT" << 'DEVSH'
+#!/bin/bash
+# stellar-frameworks dev server — popup preview provider
+# Serves Caddy (:81) → reverse proxy → :3000
+# Smart mode: Next.js if available, static file server otherwise.
+# Created by boot.sh v5.4.5 — do not edit manually.
+
+if [ -f /home/z/my-project/package.json ] \
+   && grep -q '"next"' /home/z/my-project/package.json 2>/dev/null; then
+  # Next.js project detected — delegate to bun
+  cd /home/z/my-project
+  exec bun run dev
+else
+  # No Next.js — serve /download/ as static files
+  mkdir -p /home/z/my-project/download
+  cd /home/z/my-project/download
+  exec python3 -m http.server 3000
+fi
+DEVSH
+  echo "[boot] dev.sh created → popup preview will be active on next session"
+elif ! grep -qF "$DEV_SCRIPT_MARKER" "$DEV_SCRIPT" 2>/dev/null; then
+  echo "[boot] dev.sh already exists (external) — keeping it"
+else
+  echo "[boot] dev.sh OK (managed by stellar-frameworks)"
+fi
+
+# ── 4. Self-heal persistence (two-phase hook) ─────────────────────
 # Ensures stellar-frameworks auto-recovers after sandbox resets.
 # Writes two-phase hook to MULTIPLE shell init files for redundancy:
 #   $HOME/.bashrc       — interactive non-login shells
@@ -197,20 +244,20 @@ done
 
 echo "[boot] Two-phase auto-heal hook written to $HOOKS_WRITTEN/3 init files"
 
-# ── 4. Post-install notice ─────────────────────────────────────
+# ── 5. Post-install notice ─────────────────────────────────────
 # Platform reads SKILL.md from disk on each Skill() call (NOT cached).
 # So updates are effective immediately — no restart needed.
 
 if $NEED_INSTALL; then
   echo ""
   echo "╔══════════════════════════════════════════════════════════════╗"
-  echo "║  ☄️ v5.4.4 installed and ACTIVE — no restart needed!         ║"
-  echo "║  Skill() reads from disk — updates are instant.              ║"
+  echo "║  ☄️ v5.4.5 installed and ACTIVE — no restart needed!         ║"
+  echo "║  Popup preview: will be active on next session (:3000).     ║"
   echo "║  Invoke: Skill(command=\"stellar-frameworks\")                 ║"
   echo "║  Auto-heal: two-phase hook in 3 init files.                  ║"
   echo "╚══════════════════════════════════════════════════════════════╝"
   echo ""
 fi
 
-# ── 5. Done ──
+# ── 6. Done ──
 exit 0
