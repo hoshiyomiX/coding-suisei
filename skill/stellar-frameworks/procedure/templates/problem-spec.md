@@ -26,6 +26,7 @@ Copy and complete the following for every task:
 | Risk Level | [LOW / MEDIUM / HIGH with justification] |
 | Dependencies | [External packages, services, config changes needed] |
 | Source State | [Branch name, HEAD commit SHA, and verification status. Example: "renuked @ 3283d1f (verified via git fetch, local matches remote)" or "No git repository involved"] |
+| Scope OUT | [Explicitly excluded from this task — prevents scope creep. If nothing is excluded, write "None — task is fully scoped." Standard/Complex tasks should always have explicit exclusions.] |
 
 ## Affected Files
 
@@ -61,6 +62,7 @@ Copy and complete the following for every task:
 | **Risk Level** | LOW = single file, well-understood pattern. MEDIUM = multiple files or minor uncertainty. HIGH = schema changes, architectural impact, or significant uncertainty. Justify the rating. |
 | **Dependencies** | Include packages to install, services that must be running, and configuration changes. If none, write "None." |
 | **Source State** | If the task involves a git repository, record the branch and HEAD SHA after running Source State Verification (see SKILL.md). This creates an immutable reference point for the analysis. If no git repository is involved, write "No git repository involved." |
+| **Scope OUT** | REQUIRED for Standard/Complex tasks. Explicitly list what is NOT part of this task. This feeds the Scope PCR's Scope OUT field and the delivery PCR's DELTA Scope comparison. Prevents scope creep by making exclusions visible before implementation starts. |
 
 ---
 

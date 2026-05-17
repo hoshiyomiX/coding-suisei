@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-#  stellar-frameworks v5.4.8
+#  stellar-frameworks v5.5.0
 #
 #  Install:  cd /home/z/my-project/stellar-frameworks && bash setup.sh
 #  Invoke:   Skill(command="stellar-frameworks")
@@ -28,7 +28,7 @@ fail()  { echo -e "${RED}[FAIL]${NC}  $*"; }
 
 echo ""
 echo "============================================"
-echo "  ☄️ stellar-frameworks v5.4.8"
+echo "  ☄️ stellar-frameworks v5.5.0"
 echo "============================================"
 echo ""
 
@@ -70,8 +70,8 @@ if [ -f "${INSTALL_DIR}/SKILL.md" ]; then
         ERRORS=$((ERRORS + 1))
     fi
 
-    if grep -q "v5.4.8" "${INSTALL_DIR}/SKILL.md"; then
-        ok "Version 5.4.8 confirmed"
+    if grep -q "v5.5.0" "${INSTALL_DIR}/SKILL.md"; then
+        ok "Version 5.5.0 confirmed"
     else
         fail "Version mismatch"
         ERRORS=$((ERRORS + 1))

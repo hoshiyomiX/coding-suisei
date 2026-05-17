@@ -1,5 +1,39 @@
 # Changelog
 
+## [5.5.0] — 2026-05-18
+
+### Added
+
+- **Scope PCR (pre-implementation commitment)** — New PCR variant output at end of PLAN phase (Standard/Complex). Commits to approach, fallback, scope boundaries (IN/OUT), step count, and risk level before IMPLEMENT begins. The delivery PCR's DELTA field measures any deviation from this commitment, making scope drift visible and traceable.
+
+- **Fallback Approach field** — Implementation plan template now requires a fallback approach (1-2 sentences describing what to do if the primary approach fails). This feeds the Adaptive Pivot Protocol — when an Approach Failure is detected during IMPLEMENT, the agent checks this field first before inventing a new approach.
+
+- **Scope Boundary field** — Implementation plan template now requires explicit IN/OUT scope definition. The OUT list prevents scope creep by making exclusions visible before implementation starts.
+
+- **Scope OUT field in problem-spec** — Problem specification template now requires explicit exclusions. Feeds the Scope PCR's Scope OUT and the delivery PCR's DELTA comparison.
+
+- **Phase Gate Protocol** — Phase transitions are now guarded with entry conditions. SPECIFY → PLAN requires all spec fields + SADC. PLAN → IMPLEMENT requires Scope PCR. IMPLEMENT → VERIFY requires self-review pass. VERIFY → DELIVER requires all checks PASS. Gates prevent incomplete output from leaking to the next phase.
+
+- **Adaptive Pivot Protocol** — New error classification: **Approach Failure** (distinct from Code Bug). When the fundamental approach is wrong (50%+ rewrite needed, same error after 2 fix attempts, missing library feature), the agent stops fixing, evaluates the fallback approach, presents a pivot to the user, re-enters PLAN, and re-implements. PIVOT field in delivery PCR records the event.
+
+- **Pivot Assessment in error-resolution** — New section in the error decision tree that runs BEFORE diagnostic paths. Classifies errors as Code Bug vs Approach Failure using concrete criteria, then routes to the appropriate recovery path.
+
+- **Approach Failure classification** — Incident report template now includes Approach Failure as an error category with dedicated Pivot Assessment field.
+
+### Changed
+
+- **PCR v2 format** — Delivery PCR redesigned with structured fields: Steps (completed/planned), Deviations (plan divergence count), Quality (automated checks), PIVOT (approach change tracking), DELTA Scope (commitment comparison). Compact PCR gains `Delta: NONE` field.
+
+- **phases.md** — All phase transitions now have explicit gate conditions. PLAN phase action 3 defines fallback, action 10 outputs Scope PCR. IMPLEMENT action 1f tracks deviations. DELIVER action 8 outputs PCR v2.
+
+- **Error Recovery** — Now starts with classification step (code bug vs approach failure) before any fix attempt. Approach failures route to PLAN (not VERIFY).
+
+- **Return Phase Decision table** — Now includes Classification column. IMPLEMENT errors can return to PLAN (pivot) instead of only VERIFY or SPECIFY.
+
+### Why
+
+The original PCR was purely post-mortem — it only reported what happened after the fact, with no commitment beforehand. This made scope drift invisible (you can't measure deviation from a commitment that was never made). The Adaptive Pivot Protocol addresses the "stubborn agent" failure mode: when an approach is fundamentally wrong, the agent should detect it early and switch strategies instead of burning context on failed fix attempts. Phase Gates ensure each phase produces valid output before the next phase consumes it, preventing error compounding.
+
 ## [5.4.8] — 2026-05-18
 
 ### Changed

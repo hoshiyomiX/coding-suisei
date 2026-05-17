@@ -10,7 +10,23 @@ IDLE → SPECIFY → PLAN → IMPLEMENT → VERIFY → DELIVER
   └──── Error Recovery ◄───────────────────┘
 ```
 
-On error: stop work, document the error, fix the root cause, return to VERIFY. If the error reveals a specification gap, return to SPECIFY instead.
+On error: stop, assess (code bug or approach failure?), fix or pivot, return to VERIFY.
+
+---
+
+## Phase Gate Protocol
+
+Phase transitions are guarded. A phase cannot begin until its entry condition is met. This prevents incomplete output from leaking into the next phase and compounding errors.
+
+| Gate | Condition | Action if not met |
+|------|-----------|-------------------|
+| SPECIFY → PLAN | All problem-spec fields filled, SADC complete | Complete missing fields before proceeding |
+| PLAN → IMPLEMENT | Implementation plan complete + Scope PCR output (Standard/Complex) | Present plan to user first |
+| IMPLEMENT → VERIFY | Self-review checklist pass, all IMPL steps done | Fix issues before transitioning |
+| VERIFY → DELIVER | All verification items PASS | Return to IMPLEMENT (or SPECIFY if spec gap) |
+
+**Simple tier**: Gates run internally — the agent validates conditions but doesn't produce formal gate output.
+**Standard/Complex tier**: PLAN → IMPLEMENT gate produces a Scope PCR (see SKILL.md). The delivery PCR's DELTA field tracks any deviation from this commitment.
 
 ---
 
@@ -26,7 +42,7 @@ On error: stop work, document the error, fix the root cause, return to VERIFY. I
    |---------------------|--------|
    | User references previous output ("apply all 10", "fix point 3", "proceed") | Skip SPECIFY+PLAN, go to IMPLEMENT |
    | User approves a proposal/plan ("yes", "go ahead", "do it") | Skip SPECIFY+PLAN, go to IMPLEMENT |
-   | User asks a follow-up question ("what about X?") | Skip SPECIFY, answer in current context |
+   | User asks a follow-up question ("what about X?") | Skip SPECIFY, answer in current phase context |
    | User provides new requirements mid-task | Restart from SPECIFY |
    | Context compression boundary with ongoing task | Check memory, resume from last active phase |
    | Completely new topic, explicit new instructions, or `Skill()` invoked | Full phase machine (continue below) |
@@ -107,20 +123,20 @@ Compact PCR format (use this instead of the full block):
 
 ```
 ☄️ PCR [Simple]
-SPECIFY→DELIVER : PASS | Evidence: <one-line result> | Defects: 0
+SPECIFY→DELIVER : PASS | Evidence: <one-line result> | Defects: 0 | Delta: NONE
 ```
 
-### Standard (full PCR)
+### Standard (full PCR + Scope PCR)
 
 Criteria: multiple files or a schema change.
 
-All phases use their full templates. Traceability IDs required. Output the full PCR block from SKILL.md.
+All phases use their full templates. Traceability IDs required. Output Scope PCR at end of PLAN. Output full Delivery PCR at end of DELIVER.
 
-### Complex (full PCR + detailed evidence)
+### Complex (full PCR + detailed evidence + Scope PCR)
 
 Criteria: architectural changes, multi-service, or high risk.
 
-All phases use their full templates with extra detail. Traceability IDs required. Output the full PCR block with expanded evidence.
+All phases use their full templates with extra detail. Traceability IDs required. Output Scope PCR at end of PLAN. Output full Delivery PCR with expanded evidence at end of DELIVER.
 
 ---
 
@@ -148,7 +164,9 @@ All phases use their full templates with extra detail. Traceability IDs required
 
 **Artifact**: `procedure/templates/problem-spec.md`
 
-**Exit criteria**: All fields filled. User reviewed and confirmed (or task is simple enough that confirmation is implied).
+**Exit criteria**: All fields filled. User reviewed and confirmed (or task is simple enough that confirmation is implied). SADC complete.
+
+**Gate**: SPECIFY → PLAN — all problem-spec fields must be filled and SADC must be complete. If not met, complete the missing fields before proceeding.
 
 **Transition**: On acceptance → PLAN. On revision → update and re-present.
 
@@ -156,27 +174,31 @@ All phases use their full templates with extra detail. Traceability IDs required
 
 ## Phase 3: PLAN
 
-**Purpose**: Design implementation strategy with traceable steps.
+**Purpose**: Design implementation strategy with traceable steps and a fallback approach.
 
 **Entry criteria**: Problem specification approved.
 
 **Actions**:
 1. Review the problem specification — confirm all requirements are accounted for.
 2. Choose a solution approach (2-3 sentences).
-3. Break implementation into ordered steps. Each step gets a Traceability ID (IMPL-001, IMPL-002, etc.).
-4. Define verification strategy — what to check, how, and expected outcome.
-5. Read relevant knowledge files based on task type (see Phase References in SKILL.md).
-6. **Skill Chain** (if applicable): If the task requires multiple skills, define the skill sequence:
+3. **Define fallback approach** — identify an alternative approach if the primary fails. This is the safety net for the Adaptive Pivot Protocol. If no fallback exists, state "No viable fallback — would require user input."
+4. Break implementation into ordered steps. Each step gets a Traceability ID (IMPL-001, IMPL-002, etc.).
+5. Define verification strategy — what to check, how, and expected outcome.
+6. Read relevant knowledge files based on task type (see Phase References in SKILL.md).
+7. **Skill Chain** (if applicable): If the task requires multiple skills, define the skill sequence:
    - Identify skills needed and their invocation order (e.g., web-search → data processing → chart generation → PDF output).
    - Assign skill-level Traceability IDs (SKILL-001, SKILL-002, ...) for each skill invocation.
    - Define intermediate artifacts between skill invocations.
    - Note: Skill invocations should be delegated to subagents when possible; the main agent orchestrates the chain.
-7. **TodoWrite Sync** (recommended): Sync implementation steps to the platform's native `TodoWrite` tool for real-time visibility. Each IMPL-XXX becomes a TodoWrite item with pending → in_progress → completed status transitions.
-8. Fill out the implementation plan template and present.
+8. **TodoWrite Sync** (recommended): Sync implementation steps to the platform's native `TodoWrite` tool for real-time visibility. Each IMPL-XXX becomes a TodoWrite item with pending → in_progress → completed status transitions.
+9. Fill out the implementation plan template and present.
+10. **Output Scope PCR** (Standard/Complex only) — after the plan is approved, output a Scope PCR block committing to the approach, fallback, scope boundaries, and step count. This becomes the contract that the delivery PCR will measure against. See SKILL.md for the Scope PCR format.
 
 **Artifact**: `procedure/templates/implementation-plan.md`
 
-**Exit criteria**: Every requirement maps to at least one step. Every step has a Traceability ID. Verification strategy covers all edge cases. Skill chain defined if multi-skill task.
+**Exit criteria**: Every requirement maps to at least one step. Every step has a Traceability ID. Verification strategy covers all edge cases. Fallback approach defined. Scope PCR output (Standard/Complex).
+
+**Gate**: PLAN → IMPLEMENT — Scope PCR must be output for Standard/Complex tasks. Simple tasks scope internally.
 
 **Transition**: On acceptance → IMPLEMENT. On revision → update and re-present.
 
@@ -195,6 +217,7 @@ All phases use their full templates with extra detail. Traceability IDs required
    c. Follow constraints from `constraints/code-standards.md` and `constraints/type-safety.md` (coding tasks).
    d. If new dependency needed, install it before writing code that uses it.
    e. Update TodoWrite item status if syncing (pending → in_progress → completed).
+   f. **Track deviations** — if implementation diverges from plan, note the deviation and justification for the PCR Deviations field.
 2. If the plan includes a Skill Chain, execute each skill invocation in order, passing intermediate artifacts between skills.
 3. Self-review using the Review Checklist in the verification report template.
 4. Fix issues found during self-review before transitioning.
@@ -203,7 +226,9 @@ All phases use their full templates with extra detail. Traceability IDs required
 
 **Exit criteria**: All steps completed. Self-review passes with no unresolved issues.
 
-**Transition**: On completion → VERIFY. On error → document with incident report template, follow error-resolution decision tree.
+**Gate**: IMPLEMENT → VERIFY — self-review checklist must pass and all IMPL steps must be done. Track deviations (times implementation diverged from plan) for the PCR Deviations field.
+
+**Transition**: On completion → VERIFY. On error → classify as code bug or approach failure (see Adaptive Pivot Protocol), follow appropriate recovery path.
 
 ---
 
@@ -228,13 +253,15 @@ All phases use their full templates with extra detail. Traceability IDs required
 
 **Exit criteria**: All checks pass (or failures documented). Every Traceability ID verified. Every edge case confirmed.
 
-**Transition**: All pass → DELIVER. Any fail → incident report, return to IMPLEMENT (or SPECIFY if specification gap).
+**Gate**: VERIFY → DELIVER — all verification items must show PASS. If any FAIL, delivery is blocked.
+
+**Transition**: All pass → DELIVER. Any fail → classify failure (code defect vs approach failure), incident report, return to appropriate phase.
 
 ---
 
 ## Phase 6: DELIVER
 
-**Purpose**: Present completed work with summary.
+**Purpose**: Present completed work with summary and compliance report.
 
 **Entry criteria**: Verification report shows all checks passing.
 
@@ -261,7 +288,7 @@ All phases use their full templates with extra detail. Traceability IDs required
 5. Note any dependencies added.
 6. Present verification report summary.
 7. State caveats or follow-up items.
-8. Output Process Compliance Report — use the compact format for Simple tasks, full format for Standard/Complex (see Complexity Tiers above).
+8. Output **Delivery PCR** — use the compact format for Simple tasks, full format for Standard/Complex (see PCR v2 in SKILL.md). Include DELTA Scope (comparison against Scope PCR) and PIVOT (if approach changed) fields.
 9. **Completion signal**: For web development tasks (Type 3 / Coding), call `Complete(project_type="web_dev", summary="...")`. For non-coding tasks, present the output file path directly.
 
 **Artifacts**: None new. Consumes verification report. Writes to `memory/YYYY-MM-DD.md` Session Digest.
@@ -272,12 +299,46 @@ All phases use their full templates with extra detail. Traceability IDs required
 
 ## Error Handling
 
+### Adaptive Pivot Protocol
+
+Before attempting any fix, classify the error:
+
+| Signal | Classification | Recovery Path |
+|--------|---------------|---------------|
+| Fix requires rewriting 50%+ of implementation | Approach Failure | Re-enter PLAN with fallback |
+| Same error recurs after 2 fix attempts | Approach Failure | Stop fixing, re-evaluate approach |
+| Fix requires changing data model / API contract | Approach Failure | Re-enter PLAN |
+| Required library/framework feature doesn't exist | Approach Failure | Pivot to Scope PCR fallback or new approach |
+| Typo, wrong variable, missing null check | Code Bug | Fix → VERIFY |
+| Type mismatch, import error, lint violation | Code Bug | Fix → VERIFY |
+
+**Pivot flow**: Error → classify → if Approach Failure: evaluate alternatives (Scope PCR fallback first), present pivot to user, re-enter PLAN with new approach, re-implement, re-verify. Record in PIVOT field of delivery PCR.
+
+### Incident Protocol
+
 1. Stop work on the current phase.
-2. Complete incident report template (`procedure/templates/incident-report.md`).
-3. Follow error resolution decision tree (`procedure/decision-trees/error-resolution.md`).
-4. Decision tree determines return phase — default is VERIFY, but specification gaps require SPECIFY.
-5. **Log incident** to `memory/incidents.md` (create `memory/` directory and file if they do not exist). Append to the file. Use exactly this format — one line, no evaluation of whether it's a "pattern" or not:
+2. Classify: code bug or approach failure (see table above).
+3. Complete incident report template (`procedure/templates/incident-report.md`).
+4. Follow error resolution decision tree (`procedure/decision-trees/error-resolution.md`).
+5. Decision tree determines return phase — default is VERIFY, but approach failures return to PLAN, and specification gaps return to SPECIFY.
+6. **Log incident** to `memory/incidents.md` (create `memory/` directory and file if they do not exist). Append to the file. Use exactly this format — one line, no evaluation of whether it's a "pattern" or not:
    ```
    [YYYY-MM-DD] error: <type from classification> | cause: <one-line root cause> | fix: <one-line fix>
    ```
    Every incident gets logged. No judgment call. If it's noise, it's one line. If it's reusable, it's captured.
+
+---
+
+## Quick Reference: Return Phase Decision
+
+| Error During | Root Cause Is | Classification | Return To |
+|-------------|---------------|---------------|----------|
+| SPECIFY | Incomplete requirements | — | SPECIFY (update spec) |
+| PLAN | Specification gap or wrong approach | — | SPECIFY or PLAN |
+| IMPLEMENT | Code defect | Code Bug | VERIFY (re-verify after fix) |
+| IMPLEMENT | Fundamental design wrong | Approach Failure | PLAN (pivot with new approach) |
+| IMPLEMENT | Specification gap | Approach Failure | SPECIFY (update spec, re-plan) |
+| VERIFY | Code defect not caught | Code Bug | IMPLEMENT (fix, then VERIFY) |
+| VERIFY | Specification gap | Approach Failure | SPECIFY (update spec, re-plan, re-implement) |
+
+When uncertain, return to SPECIFY. It is safer to re-confirm requirements than to fix code against a misunderstood specification.

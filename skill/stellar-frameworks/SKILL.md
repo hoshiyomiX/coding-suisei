@@ -1,6 +1,6 @@
 ---
 name: stellar-frameworks
-version: 5.4.8
+version: 5.5.0
 description: "Core workflow — runs ALL tasks through a phase machine (SPECIFY → PLAN → IMPLEMENT → VERIFY → DELIVER) without exception. Coding tasks: full phases with Traceability IDs and verification. Non-coding tasks (questions, explanations, recommendations): Minimal tier — all phases run internally, only IMPLEMENT produces output. Every task gets a Process Compliance Report. Covers building features, fixing bugs, refactoring, writing scripts, debugging, generating code, answering questions, explaining concepts, and providing recommendations. The phase machine always activates — complexity adapts, participation never skips."
 ---
 <!-- VERSION SYNC: on bump, update (1) frontmatter above, (2) activation banner below, (3) boot.sh header, (4) setup.sh header, (5) README.md badge + invoke line + version history, (6) CHANGELOG.md -->
@@ -8,8 +8,8 @@ description: "Core workflow — runs ALL tasks through a phase machine (SPECIFY 
 ## Activation
 
 ```
-☄️ STELLAR · v5.4.8 · ACTIVE
-   Phase State Machine · Traceability IDs · Artifact Templates · SSV · SADC · Memory · Continuity · Universal
+☄️ STELLAR · v5.5.0 · ACTIVE
+   Phase State Machine · Traceability IDs · Phase Gates · Scope PCR · Adaptive Pivot · SSV · SADC · Memory · Continuity · Universal
 ```
 
 This framework structures ALL work as a phase machine. It activates for every task — coding or not — without exception. What changes between tasks is the complexity tier, not whether the framework participates. Coding tasks get full phases with Traceability IDs and formal verification. Non-coding tasks (questions, explanations, recommendations) get Minimal tier — all phases still run, but SPECIFY, PLAN, and VERIFY happen internally (the agent thinks through them without outputting formal artifacts). Only IMPLEMENT produces visible work. Every task, regardless of type, gets a Process Compliance Report recording that the framework was followed.
@@ -26,7 +26,7 @@ IDLE → SPECIFY → PLAN → IMPLEMENT → VERIFY → DELIVER
   └──── Error Recovery ◄───────────────────┘
 ```
 
-On error: stop, diagnose, fix, return to VERIFY.
+On error: assess (code bug or approach failure?), fix or pivot, return to VERIFY. See Adaptive Pivot Protocol.
 
 | Phase | Purpose |
 |-------|---------|
@@ -119,13 +119,30 @@ Before planning any implementation, verify that the approach is grounded in real
 
 SADC is the first action in SPECIFY. The problem specification must reference the sources checked. If no existing solution is found, state that explicitly — "searched npm/PyPI/docs, no existing package found" is a valid result. Building from scratch when a library exists is a spec-level defect.
 
+## Adaptive Pivot Protocol
+
+Not every error is a bug. Some errors signal that the chosen approach is fundamentally wrong — a library doesn't work as documented, a framework lacks a required feature, or the architecture assumption was invalid. Fixing code bugs when the real problem is the approach wastes time and context.
+
+**Rule**: On every error, classify it as either a **Code Bug** or an **Approach Failure** before attempting a fix.
+
+| Signal | Classification | Action |
+|--------|---------------|--------|
+| Fix requires rewriting 50%+ of implementation | Approach Failure | Evaluate alternatives, present pivot to user |
+| Same error recurs after 2 fix attempts | Approach Failure | Stop fixing, re-evaluate approach |
+| Fix requires changing data model / API contract | Approach Failure | Re-enter PLAN with new approach |
+| Required library/framework feature doesn't exist | Approach Failure | Pivot to alternative (use Scope PCR fallback) |
+| Typo, wrong variable, missing null check | Code Bug | Normal fix → VERIFY |
+| Type mismatch, import error, lint violation | Code Bug | Normal fix → VERIFY |
+
+**Pivot flow**: Error detected → classify → if Approach Failure: re-enter PLAN with fallback approach (from Scope PCR) or new approach → present to user → re-implement → re-verify. The PIVOT field in the delivery PCR records this event.
+
 ## Error Recovery
 
 1. **Stop** — do not continue past errors
-2. Document the error (incident report template)
-3. Ask the user before any action with side effects (git changes, file deletions, destructive operations)
-4. Fix root cause, not symptom
-5. Return to VERIFY and re-verify
+2. **Classify** — code bug or approach failure? (see Adaptive Pivot Protocol above)
+3. If code bug: document the error (incident report template), fix root cause, return to VERIFY
+4. If approach failure: re-enter PLAN, evaluate alternatives (Scope PCR fallback first), present pivot to user, re-implement
+5. Ask the user before any action with side effects (git changes, file deletions, destructive operations)
 
 Git rules (overrides defaults):
 - `git fetch` and inspect before `git pull` — if remote diverged, stop and ask
@@ -134,36 +151,84 @@ Git rules (overrides defaults):
 
 Full decision tree: `procedure/decision-trees/error-resolution.md`.
 
-## Process Compliance Report
+## Phase Gate Protocol
 
-After completing a task, output a PCR block. The format depends on task type.
+Phase transitions are not free. Each gate has an entry condition that must be satisfied before the next phase begins. Gates prevent drift — if a phase produces incomplete output, the next phase receives incomplete input, and the gap compounds.
+
+| Gate | Condition | Block if fails |
+|------|-----------|----------------|
+| SPECIFY → PLAN | All problem-spec fields filled, SADC complete | Complete missing fields |
+| PLAN → IMPLEMENT | Scope PCR output (Standard/Complex) | Present plan first |
+| IMPLEMENT → VERIFY | Self-review checklist pass, all IMPL steps done | Fix issues first |
+| VERIFY → DELIVER | All verification items PASS | Return to IMPLEMENT |
+
+For Simple tasks, the PLAN → IMPLEMENT gate is implicit (no user confirmation required, but scope must still be internally validated). For Standard/Complex tasks, the Scope PCR is a formal output that the implementation must honor. Any deviation from the Scope PCR must appear in the delivery PCR's DELTA field.
+
+## Process Compliance Report (PCR v2)
+
+PCR has two parts: **Scope PCR** (output at end of PLAN, before IMPLEMENT) and **Delivery PCR** (output at end of DELIVER). Scope PCR commits to what will be built. Delivery PCR reports what was actually built and whether it matches the commitment.
+
+### Scope PCR (output at end of PLAN)
+
+Used by Standard and Complex-tier tasks. Simple tasks scope internally (no formal output). This is the implementation contract — the delivery PCR will be measured against it.
+
+```
+☄️ SCOPE [Standard]
+├─ Approach       : <primary approach, 1-2 sentences>
+├─ Fallback       : <alternative if primary fails, 1 sentence>
+├─ Scope IN       : <what's included>
+├─ Scope OUT      : <explicitly excluded>
+├─ IMPL Steps     : X (IMPL-001 to IMPL-XXX)
+└─ Risk           : LOW / MEDIUM / HIGH
+```
 
 ### Compact PCR (Simple)
 
-Used by Simple-tier tasks (single file, no schema change, no new dependencies). Replaces the full block with a one-liner.
-
 ```
 ☄️ PCR [Simple]
-SPECIFY→DELIVER : PASS | Evidence: <one-line result> | Defects: 0
+SPECIFY→DELIVER : PASS | Evidence: <one-line result> | Defects: 0 | Delta: NONE
 ```
 
 ### Full PCR (Standard / Complex)
 
-Used by Standard and Complex-tier tasks (multiple files, schema changes, or architectural impact).
+```
+☄️ PCR [Standard]
+├─ Continuation : NEW / YES
+├─ IMPLEMENT     : PASS
+│  ├─ Steps      : 4/4
+│  ├─ Deviations : 0
+│  └─ Quality    : lint PASS, tsc PASS
+├─ VERIFY        : PASS
+│  ├─ Checks     : 3/3
+│  └─ Edge Cases : 2/2
+├─ PIVOT         : NONE
+├─ DELTA Scope   : NONE
+└─ OUTCOME       : PASS
+
+Evidence: [concrete results]
+Defects found and fixed: 0
+```
+
+| Field | Meaning |
+|-------|---------|
+| Continuation | Whether this task continued from previous work |
+| Steps | IMPL steps completed vs planned (e.g. 4/4) |
+| Deviations | Times implementation diverged from plan (0 = clean) |
+| Quality | Automated checks during implementation |
+| PIVOT | NONE, or details of approach change (trigger, from, to) |
+| DELTA Scope | NONE, or what changed from Scope PCR |
+
+If PIVOT is not NONE, expand it:
 
 ```
-☄️ PCR
-├─ Tier         : Standard / Complex
-├─ Continuation : NEW / YES (skipped SPECIFY and/or PLAN)
-├─ SPECIFY      : PASS / N/A / SKIP (continuation only)
-├─ PLAN         : PASS / N/A / SKIP (continuation only)
-├─ IMPLEMENT    : PASS / N/A
-├─ VERIFY       : PASS / N/A
-└─ OUTCOME      : PASS / FAIL
-
-Evidence: [concrete results — e.g. "lint 0 errors, 4/4 traceability verified"]
-Defects found and fixed: [n]
+├─ PIVOT         : YES
+│  ├─ From      : <original approach>
+│  ├─ Trigger   : <what made us pivot>
+│  ├─ To        : <new approach>
+│  └─ Re-planned : X steps (IMPL-001 to IMPL-XXX)
 ```
+
+PIVOT is not a failure marker — it's evidence of professional adaptation. An agent that pivots cleanly is more reliable than one that stubbornly forces a broken approach.
 
 ### Minimal PCR (non-coding: questions, explanations, recommendations)
 

@@ -19,7 +19,7 @@ set -euo pipefail
 # --fast mode is overridden to force git pull. This prevents stale
 # snapshots (e.g. v5.3.0 baked into repo.tar) from persisting.
 # Bump this whenever a new version is released.
-MINIMUM_VERSION="5.4.8"
+MINIMUM_VERSION="5.5.0"
 
 # Semantic version comparison: returns 0 (true) if $1 < $2
 version_lt() {

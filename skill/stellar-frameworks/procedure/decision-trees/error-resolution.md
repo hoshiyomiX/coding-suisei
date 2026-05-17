@@ -33,6 +33,7 @@ Use the error message and context to classify the error into one of the categori
 
 | Category | Indicators | Reference |
 |----------|-----------|-----------|
+| **Approach Failure** | Fix requires rewriting 50%+ of implementation, same error recurs after 2 fix attempts, required feature doesn't exist in chosen library/framework | See Pivot Assessment below |
 | **Compilation / Syntax** | `SyntaxError`, `Unexpected token`, `cannot find module`, build fails | `knowledge/universal/conventions.md` (import rules, file extensions) |
 | **Type** | TypeScript error (`TSxxxx`), `Type 'X' is not assignable to type 'Y'`, type mismatch | `knowledge/universal/conventions.md` (type constraints, `unknown` vs `any`) |
 | **Runtime** | `TypeError`, `ReferenceError`, `Cannot read properties of undefined`, function crashes | `knowledge/universal/error-patterns.md` (runtime error patterns) |
@@ -41,6 +42,36 @@ Use the error message and context to classify the error into one of the categori
 | **Git / Version Control** | `push rejected`, `fetch failed`, `merge conflict`, `diverged branches`, `non-fast-forward`, `detached HEAD` | This section (see Git diagnostic path below) |
 | **AI / SDK** | SDK invocation failure, rate limit, timeout, model error, image generation failure, `z-ai-web-dev-sdk` runtime error | See AI/SDK diagnostic path below |
 | **Other** | Error does not match any category above | Isolate minimal reproduction (see below) |
+
+### Pivot Assessment (Approach Failure)
+
+Before following any diagnostic path, determine if the error is a **Code Bug** or an **Approach Failure**. This classification changes the entire recovery path.
+
+**Pivot Assessment criteria**:
+
+| Signal | Type | Explanation |
+|--------|------|-------------|
+| Fix requires rewriting 50%+ of implementation | Approach Failure | The fundamental design is wrong — patching won't help |
+| Same error recurs after 2 fix attempts | Approach Failure | Fixing symptoms, not root cause — escalation needed |
+| Fix requires changing data model / API contract | Approach Failure | Architecture assumption was invalid |
+| Required library/framework feature doesn't exist | Approach Failure | SADC miss — the chosen approach is infeasible |
+| Simple typo, wrong variable, missing null check | Code Bug | Normal implementation error — proceed to diagnostic path |
+| Type mismatch, import error, lint violation | Code Bug | Normal implementation error — proceed to diagnostic path |
+
+**If Approach Failure is detected**:
+
+1. **Stop fixing immediately** — do not attempt a third fix attempt on the same approach.
+2. **Check Scope PCR fallback** — the implementation plan's Fallback Approach field should have a concrete alternative.
+3. **Evaluate the fallback** — is it still viable given what was learned from the failure?
+4. **Present pivot to user** — explain what failed, why the fallback is better, and what changes.
+5. **Re-enter PLAN** — create a new implementation plan using the fallback (or a new approach if fallback is not viable).
+6. **Output new Scope PCR** — update the Scope PCR with the new approach.
+7. **Re-implement and re-verify** — full cycle from PLAN through DELIVER.
+8. **Record PIVOT in delivery PCR** — the PIVOT field documents the approach change for audit trail.
+
+**Output**: Classification as Code Bug or Approach Failure. If Approach Failure, proceed to pivot flow instead of diagnostic path.
+
+**Decision**: If Code Bug → proceed to appropriate diagnostic path below. If Approach Failure → pivot flow above.
 
 ### Diagnostic Paths by Category
 
@@ -185,13 +216,14 @@ After applying a fix, full verification is required to confirm nothing else was 
 
 ## Quick Reference: Return Phase Decision
 
-| Error During | Root Cause Is | Return To |
-|-------------|---------------|-----------|
-| SPECIFY | Incomplete requirements | SPECIFY (update spec) |
-| PLAN | Specification gap or wrong approach | SPECIFY (update spec) or PLAN (update plan) |
-| IMPLEMENT | Code defect | VERIFY (re-verify after fix) |
-| IMPLEMENT | Specification gap | SPECIFY (update spec, re-plan, re-implement) |
-| VERIFY | Code defect not caught by self-review | IMPLEMENT (fix, then VERIFY) |
-| VERIFY | Specification gap | SPECIFY (update spec, re-plan, re-implement, re-verify) |
+| Error During | Root Cause Is | Classification | Return To |
+|-------------|---------------|---------------|----------|
+| SPECIFY | Incomplete requirements | — | SPECIFY (update spec) |
+| PLAN | Specification gap or wrong approach | — | SPECIFY or PLAN |
+| IMPLEMENT | Code defect | Code Bug | VERIFY (re-verify after fix) |
+| IMPLEMENT | Fundamental design wrong | Approach Failure | PLAN (pivot with fallback or new approach) |
+| IMPLEMENT | Specification gap | Approach Failure | SPECIFY (update spec, re-plan) |
+| VERIFY | Code defect not caught by self-review | Code Bug | IMPLEMENT (fix, then VERIFY) |
+| VERIFY | Specification gap | Approach Failure | SPECIFY (update spec, re-plan, re-implement) |
 
 When uncertain, return to SPECIFY. It is safer to re-confirm requirements than to fix code against a misunderstood specification.
