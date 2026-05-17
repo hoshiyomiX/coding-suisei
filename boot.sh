@@ -1,8 +1,8 @@
 #!/bin/bash
-# stellar-frameworks — Install, self-heal (git-tracked) v5.4.5
+# stellar-frameworks — Install, self-heal (git-tracked) v5.4.6
 # Pure skill installer + popup preview provider. No Next.js bootstrap.
 # Self-heal: after first run, adds two-phase hook to shell init files.
-# Popup preview: creates .zscripts/dev.sh for static file serving on :3000.
+# Popup preview: creates .zscripts/dev.sh AND launches it for immediate :3000 serving.
 # Usage: bash <(curl -sL https://raw.githubusercontent.com/hoshiyomiX/stellar-frameworks/main/boot.sh)
 #    or: bash ~/my-project/stellar-frameworks/boot.sh
 #    or: bash stellar-frameworks/boot.sh [--install-only] [--fast]
@@ -170,6 +170,9 @@ fi
 # To force fullstack-dev setup: rm .zscripts/dev.sh && invoke fullstack-dev.
 
 DEV_SCRIPT_MARKER="# stellar-frameworks dev server"
+DEV_PID_FILE="$ZSCRIPTS/.dev-server.pid"
+DEV_SH_CREATED=false
+
 if [ ! -f "$DEV_SCRIPT" ]; then
   echo "[boot] Creating dev.sh for popup preview..."
   mkdir -p "$ZSCRIPTS"
@@ -178,7 +181,13 @@ if [ ! -f "$DEV_SCRIPT" ]; then
 # stellar-frameworks dev server — popup preview provider
 # Serves Caddy (:81) → reverse proxy → :3000
 # Smart mode: Next.js if available, static file server otherwise.
-# Created by boot.sh v5.4.5 — do not edit manually.
+# Created by boot.sh v5.4.6 — do not edit manually.
+# Guard: if :3000 is already occupied, exit gracefully.
+
+if command -v ss >/dev/null 2>&1 && ss -tlnp 2>/dev/null | grep -q ':3000 '; then
+  echo "[dev.sh] Port :3000 already in use — not starting" >&2
+  exit 0
+fi
 
 if [ -f /home/z/my-project/package.json ] \
    && grep -q '"next"' /home/z/my-project/package.json 2>/dev/null; then
@@ -192,11 +201,42 @@ else
   exec python3 -m http.server 3000
 fi
 DEVSH
-  echo "[boot] dev.sh created → popup preview will be active on next session"
+  chmod +x "$DEV_SCRIPT"
+  DEV_SH_CREATED=true
+  echo "[boot] dev.sh created"
 elif ! grep -qF "$DEV_SCRIPT_MARKER" "$DEV_SCRIPT" 2>/dev/null; then
   echo "[boot] dev.sh already exists (external) — keeping it"
 else
   echo "[boot] dev.sh OK (managed by stellar-frameworks)"
+fi
+
+# ── 3b. Launch popup preview server (immediate, not deferred) ──────
+# BUGFIX: /start.sh auto-executes .zscripts/dev.sh at SESSION START.
+# On fresh install, dev.sh doesn't exist yet when /start.sh runs →
+# server never starts → port :3000 empty → Caddy :81 shows 502.
+# Fix: boot.sh itself launches the server after creating dev.sh.
+# PID file prevents duplicate launches across Phase 1 / Phase 2 / /start.sh.
+
+MAYBE_LAUNCH=false
+if [ -f "$DEV_PID_FILE" ]; then
+  if kill -0 "$(cat "$DEV_PID_FILE")" 2>/dev/null; then
+    : # Server already running from a previous invocation
+  else
+    rm -f "$DEV_PID_FILE"
+    MAYBE_LAUNCH=true
+  fi
+else
+  MAYBE_LAUNCH=true
+fi
+
+if $MAYBE_LAUNCH && [ -f "$DEV_SCRIPT" ]; then
+  mkdir -p "$DOWNLOAD_DIR"
+ bash "$DEV_SCRIPT" >/dev/null 2>&1 &
+ DEV_PID=$!
+ echo "$DEV_PID" > "$DEV_PID_FILE"
+  echo "[boot] Popup preview launched on :3000 (PID $DEV_PID)"
+else
+  echo "[boot] Popup preview already running"
 fi
 
 # ── 4. Self-heal persistence (two-phase hook) ─────────────────────
@@ -251,8 +291,8 @@ echo "[boot] Two-phase auto-heal hook written to $HOOKS_WRITTEN/3 init files"
 if $NEED_INSTALL; then
   echo ""
   echo "╔══════════════════════════════════════════════════════════════╗"
-  echo "║  ☄️ v5.4.5 installed and ACTIVE — no restart needed!         ║"
-  echo "║  Popup preview: will be active on next session (:3000).     ║"
+  echo "║  ☄️ v5.4.6 installed and ACTIVE — no restart needed!         ║"
+  echo "║  Popup preview: LIVE on :3000 (immediate, no restart).     ║"
   echo "║  Invoke: Skill(command=\"stellar-frameworks\")                 ║"
   echo "║  Auto-heal: two-phase hook in 3 init files.                  ║"
   echo "╚══════════════════════════════════════════════════════════════╝"

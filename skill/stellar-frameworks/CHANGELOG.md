@@ -1,5 +1,22 @@
 # Changelog
 
+## [5.4.6] — 2026-05-17
+
+### Fixed
+
+- **Critical: Popup preview not starting on fresh installation** — boot.sh v5.4.5 only created `.zscripts/dev.sh` but did not launch it. The platform's `/start.sh` auto-executes dev.sh at session start, but on fresh install, dev.sh doesn't exist yet when `/start.sh` runs (because boot.sh hasn't run yet). Result: port :3000 stayed empty, Caddy `:81` showed 502 Bad Gateway. Fixed by having boot.sh directly launch the server after creating dev.sh, using a PID file (`~/.zscripts/.dev-server.pid`) to prevent duplicate launches across Phase 1, Phase 2, and `/start.sh`.
+
+### Changed
+
+- **dev.sh now guards against duplicate launches** — Added port check at the top of dev.sh: if `:3000` is already occupied, dev.sh exits gracefully instead of crashing with "Address already in use". This prevents noisy errors when both boot.sh and `/start.sh` attempt to launch the server.
+- **Popup preview banner updated** — Post-install message now says "LIVE on :3000 (immediate, no restart)" instead of "will be active on next session".
+
+### Technical Notes
+
+- The PID file approach was chosen over simple port checking (`ss -tlnp | grep :3000`) because: (1) it works without root privileges, (2) it survives the brief window between server launch and port binding, (3) it correctly identifies the server process even if something else temporarily binds to :3000.
+- Startup sequence on RESTORE (repo.tar with previous session data): `/start.sh` sources `.bash_profile` → Phase 1 hook runs boot.sh → boot.sh creates dev.sh + launches server → `/start.sh` continues → finds dev.sh → tries to launch → dev.sh's port guard exits gracefully → single server instance running. Correct.
+- Startup sequence on FRESH install (no previous data): `/start.sh` runs → no `.bash_profile` hook → no dev.sh → skips dev server → later, agent runs boot.sh (manually or via first shell open) → boot.sh creates dev.sh + launches server → popup preview becomes active immediately without restart.
+
 ## [5.4.5] — 2026-05-17
 
 ### Added
