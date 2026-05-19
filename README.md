@@ -115,21 +115,16 @@ Structured 5-step decision tree: **capture → classify → identify actions →
 
 ### Session Persistence
 
-The z.ai platform loads `available_skills` at **session start** from the `skills/` directory. Two important constraints:
-
-1. **Skills installed mid-session are NOT available** until the next session restart
-2. **The sandbox may reset** the `skills/` directory after periods of inactivity
+The platform reads `SKILL.md` from disk on every `Skill()` call — updates are effective immediately without restart. The main risk is the sandbox resetting and wiping the `skills/` directory.
 
 Recovery mechanism:
 
 | Scenario | Solution | What happens |
 |----------|----------|-------------|
 | **Fresh sandbox** (first time) | Run the Quick Start one-liner | Clones repo to `$HOME/.stellar-frameworks-repo`, installs skill files to `skills/`, writes auto-heal hook to `$HOME/.bashrc` |
-| **Mid-session** (just installed, no restart) | Read `skills/stellar-frameworks/SKILL.md` directly | `Skill()` caches at session start, but `Read()` accesses the same file. Content is identical — follow the instructions manually. |
-| **After install, same session** | **Restart the session** | Platform re-scans `skills/` at session start — `Skill()` works natively |
 | **Sandbox reset** (project dir wiped) | Hook auto-triggers on next shell open | Hook clones repo from GitHub (if missing), pulls latest, runs `boot.sh --fast`. Skill files restored to `skills/`. Next `Skill()` call works. |
 
-**Important**: After running the one-liner, you **must restart the session** for the skill to appear in `available_skills`. This is a platform constraint — skills are loaded once at session start and not refreshed mid-session. The `$HOME/.bashrc` auto-heal hook ensures subsequent sessions recover automatically even if the sandbox resets. The git repo lives at `$HOME/.stellar-frameworks-repo/` (outside the project directory) to survive project resets.
+The `$HOME/.bashrc` auto-heal hook ensures recovery happens automatically even after sandbox resets. The git repo lives at `$HOME/.stellar-frameworks-repo/` (outside the project directory) to survive project resets. A fallback path copies from the git-tracked `skill/` directory if the repo itself is unavailable.
 
 ---
 
@@ -138,7 +133,6 @@ Recovery mechanism:
 ```
 stellar-frameworks/
 ├── boot.sh                           # Install + session bootstrap (single entry point)
-├── activate.sh                       # Mid-session activator (reads SKILL.md directly)
 ├── setup.sh                          # [Legacy] Standalone installer — boot.sh handles this now
 ├── README.md                         # This file
 ├── skill/stellar-frameworks/         # Git-tracked source (copied to skills/ on install)
