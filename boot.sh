@@ -1,16 +1,22 @@
 #!/bin/bash
-# stellar-frameworks — Install, self-heal (git-tracked) v5.7.0
+# stellar-frameworks — Install, self-heal (git-tracked) v5.8.0
 # Pure skill installer + popup preview provider. No Next.js bootstrap.
-# Self-heal: after first run, adds two-phase hook to shell init files.
+# Self-heal: after first run, adds hook to shell init files.
 # Popup preview: creates .zscripts/dev.sh AND launches it for immediate :3000 serving.
 # Usage: bash <(curl -sL https://raw.githubusercontent.com/hoshiyomiX/stellar-frameworks/main/boot.sh)
-#    or: bash ~/my-project/stellar-frameworks/boot.sh
+#    or: bash ~/.stellar-frameworks-repo/boot.sh
 #    or: bash stellar-frameworks/boot.sh [--install-only] [--fast]
 #
 # Flags:
-#   --fast         Skip git operations (pure local copy ~50ms). Used by hook Phase 1.
+#   --fast         Skip git operations (pure local copy ~50ms). Used by hook.
 #                   OVERridden if local repo version < MINIMUM_VERSION (stale snapshot).
 #   --install-only Accepted for compatibility; no-op since v5.4.4.
+#
+# Path architecture (v5.8.0):
+#   GIT_REPO   = $HOME/.stellar-frameworks-repo   (survives project resets)
+#   INSTALL    = $PROJECT_ROOT/skills/stellar-frameworks  (platform load path)
+#   Hook lives in $HOME init files (survives project resets)
+#   If repo is missing, hook auto-clones from GitHub before booting.
 
 set -euo pipefail
 
@@ -19,7 +25,7 @@ set -euo pipefail
 # --fast mode is overridden to force git pull. This prevents stale
 # snapshots (e.g. v5.3.0 baked into repo.tar) from persisting.
 # Bump this whenever a new version is released.
-MINIMUM_VERSION="5.7.0"
+MINIMUM_VERSION="5.8.0"
 
 # Semantic version comparison: returns 0 (true) if $1 < $2
 version_lt() {
@@ -39,40 +45,60 @@ for arg in "$@"; do
   esac
 done
 
-# ── 0. Auto-clone: if running from a one-liner, SCRIPT_DIR is a temp dir ──
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ── 0. Path configuration ──────────────────────────────────────────
 REPO_URL="https://github.com/hoshiyomiX/stellar-frameworks.git"
 PROJECT_ROOT="${PROJECT_ROOT:-/home/z/my-project}"
-TARGET_DIR="$PROJECT_ROOT/stellar-frameworks"
+# v5.8.0: repo lives in $HOME, not inside project dir.
+# This survives platform resets that wipe /home/z/my-project/.
+TARGET_DIR="${STELLAR_REPO_PATH:-$HOME/.stellar-frameworks-repo}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [ ! -f "$TARGET_DIR/boot.sh" ]; then
-  echo "[boot] Repo not found at $TARGET_DIR — cloning..."
-  mkdir -p "$PROJECT_ROOT"
-  git clone "$REPO_URL" "$TARGET_DIR" 2>/dev/null || {
-    echo "[boot] ERROR: git clone failed. Check network or run manually:"
-    echo "  cd $PROJECT_ROOT && git clone $REPO_URL"
-    exit 1
-  }
-  echo "[boot] Cloned successfully"
-  SCRIPT_DIR="$TARGET_DIR"
-elif [ "$(basename "$SCRIPT_DIR")" != "stellar-frameworks" ]; then
+# If boot.sh is running from a location OTHER than the repo (e.g. old path),
+# redirect to the canonical repo location.
+if [ "$(basename "$SCRIPT_DIR")" != ".stellar-frameworks-repo" ] && \
+   [ "$(basename "$SCRIPT_DIR")" != "stellar-frameworks" ]; then
   SCRIPT_DIR="$TARGET_DIR"
 fi
 
 SOURCE_DIR="$SCRIPT_DIR/skill/stellar-frameworks"
-
-# Detect project root — repo may be a subdirectory of /home/z/my-project/
-if [ -f "$PROJECT_ROOT/package.json" ] && [ -d "$PROJECT_ROOT/src/app" ]; then
-  : # PROJECT_ROOT explicitly set or detected
-else
-  PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-fi
-
 INSTALL_DIR="$PROJECT_ROOT/skills/stellar-frameworks"
 OBSOLETE_DIR="$PROJECT_ROOT/skills/stellar-coding-agent"
 ZSCRIPTS="$PROJECT_ROOT/.zscripts"
 DEV_SCRIPT="$ZSCRIPTS/dev.sh"
 DOWNLOAD_DIR="$PROJECT_ROOT/download"
+
+# ── 0a. Auto-clone: ensure repo exists ─────────────────────────────
+# Three recovery strategies:
+#   1. Repo already at TARGET_DIR → use it
+#   2. Repo at old path ($PROJECT_ROOT/stellar-frameworks) → migrate
+#   3. Neither → clone from GitHub
+OLD_REPO_DIR="$PROJECT_ROOT/stellar-frameworks"
+
+if [ ! -d "$TARGET_DIR/.git" ]; then
+  if [ -d "$OLD_REPO_DIR/.git" ]; then
+    # Strategy 2: migrate from old project-internal path
+    echo "[boot] Migrating repo: $OLD_REPO_DIR → $TARGET_DIR"
+    mkdir -p "$HOME"
+    mv "$OLD_REPO_DIR" "$TARGET_DIR"
+    SCRIPT_DIR="$TARGET_DIR"
+    SOURCE_DIR="$TARGET_DIR/skill/stellar-frameworks"
+  else
+    # Strategy 3: clone fresh from GitHub
+    echo "[boot] Repo not found — cloning from GitHub..."
+    mkdir -p "$HOME"
+    git clone "$REPO_URL" "$TARGET_DIR" 2>/dev/null || {
+      echo "[boot] ERROR: git clone failed. Check network or run manually:"
+      echo "  git clone $REPO_URL $TARGET_DIR"
+      exit 1
+    }
+    echo "[boot] Cloned successfully"
+    SCRIPT_DIR="$TARGET_DIR"
+    SOURCE_DIR="$TARGET_DIR/skill/stellar-frameworks"
+  fi
+elif [ "$(basename "$SCRIPT_DIR")" != ".stellar-frameworks-repo" ]; then
+  SCRIPT_DIR="$TARGET_DIR"
+  SOURCE_DIR="$TARGET_DIR/skill/stellar-frameworks"
+fi
 
 # ── 0b. Stale snapshot override ───────────────────────────────────
 # Even in --fast mode, if the local repo itself is outdated (from a stale
@@ -266,6 +292,9 @@ fi
 #   $HOME/.bash_profile  — login shells (bash)
 #   $HOME/.profile       — login shells (POSIX fallback)
 #
+# v5.8.0: Hook uses TARGET_DIR ($HOME/.stellar-frameworks-repo) which
+# survives project resets. If repo is missing, hook auto-clones first.
+#
 # CRITICAL: The hook must git pull BEFORE running boot.sh.
 # In a stale snapshot, both the local repo AND boot.sh are outdated.
 # If boot.sh runs first (even without --fast), it uses the OLD logic.
@@ -273,7 +302,8 @@ fi
 # When already up-to-date, git pull --ff-only is nearly instant (~0.1s).
 
 BASHRC_MARKER="# stellar-frameworks auto-heal"
-BASHRC_PHASE1="(cd $TARGET_DIR && git pull --ff-only --quiet 2>/dev/null); bash $TARGET_DIR/boot.sh --fast --install-only >/dev/null 2>&1"
+# Fallback: if TARGET_DIR doesn't exist, clone it first, then boot
+BASHRC_PHASE1="[ -d $TARGET_DIR/.git ] || git clone $REPO_URL $TARGET_DIR 2>/dev/null; (cd $TARGET_DIR && git pull --ff-only --quiet 2>/dev/null); bash $TARGET_DIR/boot.sh --fast --install-only >/dev/null 2>&1"
 
 # Clean up stale hook from wrong path (v5.4.1 bug)
 STALE_BASHRC="$PROJECT_ROOT/.bashrc"
@@ -302,7 +332,7 @@ for HOOK_FILE in "${HOOK_TARGETS[@]}"; do
   HOOKS_WRITTEN=$((HOOKS_WRITTEN + 1))
 done
 
-echo "[boot] Auto-heal hook written to $HOOKS_WRITTEN/3 init files (git-pull-then-boot)"
+echo "[boot] Auto-heal hook written to $HOOKS_WRITTEN/3 init files (clone-if-missing + git-pull + boot)"
 
 # ── 5. Post-install notice ─────────────────────────────────────
 # Platform reads SKILL.md from disk on each Skill() call (NOT cached).
@@ -311,10 +341,11 @@ echo "[boot] Auto-heal hook written to $HOOKS_WRITTEN/3 init files (git-pull-the
 if $NEED_INSTALL; then
   echo ""
   echo "╔══════════════════════════════════════════════════════════════╗"
-  echo "║  ☄️ v5.7.0 installed and ACTIVE — no restart needed!         ║"
+  echo "║  ☄️ v5.8.0 installed and ACTIVE — no restart needed!         ║"
   echo "║  Popup preview: LIVE on :3000 (persistent, unkillable).    ║"
   echo "║  Invoke: Skill(command=\"stellar-frameworks\")                 ║"
-  echo "║  Auto-heal: two-phase hook in 3 init files.                  ║"
+  echo "║  Repo: $TARGET_DIR"
+  echo "║  Auto-heal: clone-if-missing hook in 3 init files.          ║"
   echo "╚══════════════════════════════════════════════════════════════╝"
   echo ""
 fi

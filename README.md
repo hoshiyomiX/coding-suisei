@@ -4,7 +4,7 @@
 
 **Universal task workflow for LLM agents**
 
-[![Version](https://img.shields.io/badge/version-5.7.0-blue.svg)](skill/stellar-frameworks/CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.8.0-blue.svg)](skill/stellar-frameworks/CHANGELOG.md)
 
 Structures ALL tasks — coding and non-coding — as a **phase state machine** with traceability IDs, artifact templates, source state verification, and file-based agent memory. For coding tasks, full phases with verification. For non-coding tasks, phases run internally (Minimal tier) but the framework still activates for traceability. Designed for the [z.ai](https://z.ai) platform.
 
@@ -21,10 +21,10 @@ IDLE → SPECIFY → PLAN → IMPLEMENT → VERIFY → DELIVER
 ## Quick Start
 
 ```bash
-cd ~/my-project && git clone https://github.com/hoshiyomiX/stellar-frameworks.git 2>/dev/null; bash stellar-frameworks/boot.sh
+bash <(curl -sL https://raw.githubusercontent.com/hoshiyomiX/stellar-frameworks/main/boot.sh)
 ```
 
-Invoke: `Skill(command="stellar-frameworks")` — look for `☄️ STELLAR · v5.7.0 · ACTIVE`.
+Invoke: `Skill(command="stellar-frameworks")` — look for `☄️ STELLAR · v5.8.0 · ACTIVE`.
 
 ---
 
@@ -124,12 +124,12 @@ Recovery mechanism:
 
 | Scenario | Solution | What happens |
 |----------|----------|-------------|
-| **Fresh sandbox** (first time) | Run the Quick Start one-liner | Clones repo, installs skill files to `skills/`, writes auto-heal hook to `$HOME/.bashrc` |
+| **Fresh sandbox** (first time) | Run the Quick Start one-liner | Clones repo to `$HOME/.stellar-frameworks-repo`, installs skill files to `skills/`, writes auto-heal hook to `$HOME/.bashrc` |
 | **Mid-session** (just installed, no restart) | Read `skills/stellar-frameworks/SKILL.md` directly | `Skill()` caches at session start, but `Read()` accesses the same file. Content is identical — follow the instructions manually. |
 | **After install, same session** | **Restart the session** | Platform re-scans `skills/` at session start — `Skill()` works natively |
-| **Sandbox reset** (inactive hours) | Two-phase hook auto-triggers | Phase 1 (sync, ~0.05s): `boot.sh --fast` restores skill name BEFORE platform scans. Phase 2 (async, ~5-15s): `boot.sh` pulls latest version + re-copies. Next `Skill()` call gets updated version. |
+| **Sandbox reset** (project dir wiped) | Hook auto-triggers on next shell open | Hook clones repo from GitHub (if missing), pulls latest, runs `boot.sh --fast`. Skill files restored to `skills/`. Next `Skill()` call works. |
 
-**Important**: After running the one-liner, you **must restart the session** for the skill to appear in `available_skills`. This is a platform constraint — skills are loaded once at session start and not refreshed mid-session. The `$HOME/.bashrc` auto-heal hook ensures subsequent sessions recover automatically even if the sandbox resets.
+**Important**: After running the one-liner, you **must restart the session** for the skill to appear in `available_skills`. This is a platform constraint — skills are loaded once at session start and not refreshed mid-session. The `$HOME/.bashrc` auto-heal hook ensures subsequent sessions recover automatically even if the sandbox resets. The git repo lives at `$HOME/.stellar-frameworks-repo/` (outside the project directory) to survive project resets.
 
 ---
 
@@ -185,6 +185,7 @@ stellar-frameworks/
 
 | Version | Summary |
 |---------|---------|
+| [**v5.8.0**](skill/stellar-frameworks/CHANGELOG.md) | Fatal bugfix: repo migrated to `$HOME/.stellar-frameworks-repo/` (survives project resets). Hook gains clone-if-missing fallback. Old repo path auto-migrated. |
 | [**v5.7.0**](skill/stellar-frameworks/CHANGELOG.md) | Post-Activation Protocol: 4-step execution sequence ensuring framework is followed, not just loaded. Phase References gains "When to Read" column. |
 | [**v5.6.0**](skill/stellar-frameworks/CHANGELOG.md) | Terminology overhaul: PCR → Delivery Reports (Scope Commitment, Delivery Report). PIVOT → Pivot, DELTA Scope → Scope Drift. Zero acronyms. |
 | [**v5.5.1**](skill/stellar-frameworks/CHANGELOG.md) | Audit fix: version sync, incident-report Pivot Assessment, SKILL.md description rewrite, dedup. |
