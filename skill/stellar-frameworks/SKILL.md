@@ -1,9 +1,12 @@
 ---
 name: stellar-frameworks
-version: 5.9.0
 description: "Activates on every task: coding (features, bugs, refactoring, scripts), documents, charts, data processing, or complex planning. Work runs through a phase machine with traceability IDs. Complexity adapts automatically."
 ---
-<!-- VERSION SYNC: on bump, update (1) frontmatter above, (2) activation banner below, (3) boot.sh header, (4) setup.sh header, (5) README.md badge + invoke line + version history, (6) CHANGELOG.md -->
+<!-- VERSION SYNC: on bump, update (1) metadata section below, (2) activation banner below, (3) boot.sh header, (4) setup.sh header, (5) README.md badge + invoke line + version history, (6) CHANGELOG.md -->
+
+## Metadata
+
+- **version**: 5.9.0
 
 ## Activation
 

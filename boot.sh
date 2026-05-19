@@ -103,7 +103,7 @@ fi
 
 # ── 0b. Stale snapshot override ───────────────────────────────────
 if $FAST_MODE && [ -f "$SOURCE_DIR/SKILL.md" ]; then
-  LOCAL_REPO_VER="$(grep -oP 'version:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "$SOURCE_DIR/SKILL.md" 2>/dev/null || echo "0.0.0")"
+  LOCAL_REPO_VER="$(grep -oP 'version\*{2}:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "$SOURCE_DIR/SKILL.md" 2>/dev/null || echo "0.0.0")"
   if version_lt "$LOCAL_REPO_VER" "$MINIMUM_VERSION"; then
     echo "[boot] Local repo $LOCAL_REPO_VER < minimum $MINIMUM_VERSION — overriding --fast"
     FAST_MODE=false
@@ -126,9 +126,9 @@ if [ -d "$SCRIPT_DIR/.git" ] && ! $FAST_MODE; then
 
         if [ "$AHEAD" = "0" ] && [ "$BEHIND" -gt 0 ]; then
           if [ -z "$(git -C "$SCRIPT_DIR" status --porcelain -- skill/ setup.sh boot.sh README.md 2>/dev/null)" ]; then
-            OLD_VER="$(grep -oP 'version:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "$SOURCE_DIR/SKILL.md" 2>/dev/null || echo "?")"
+            OLD_VER="$(grep -oP 'version\*{2}:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "$SOURCE_DIR/SKILL.md" 2>/dev/null || echo "?")"
             if git -C "$SCRIPT_DIR" pull --ff-only --quiet origin "$BRANCH" 2>/dev/null; then
-              NEW_VER="$(grep -oP 'version:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "$SOURCE_DIR/SKILL.md" 2>/dev/null || echo "?")"
+              NEW_VER="$(grep -oP 'version\*{2}:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "$SOURCE_DIR/SKILL.md" 2>/dev/null || echo "?")"
               echo "[boot] Updated ${OLD_VER} → ${NEW_VER} ($BEHIND commits)"
             else
               echo "[boot] WARNING: git pull failed — skipping update"
@@ -154,8 +154,8 @@ if [ ! -f "$INSTALL_DIR/SKILL.md" ] || [ ! -s "$INSTALL_DIR/SKILL.md" ]; then
     echo "[boot] SKILL.md not found — installing"
   fi
 else
-  INSTALLED_VER="$(grep -oP 'version:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "$INSTALL_DIR/SKILL.md" 2>/dev/null || echo "0.0.0")"
-  SOURCE_VER="$(grep -oP 'version:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "$SOURCE_DIR/SKILL.md" 2>/dev/null || echo "0.0.0")"
+  INSTALLED_VER="$(grep -oP 'version\*{2}:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "$INSTALL_DIR/SKILL.md" 2>/dev/null || echo "0.0.0")"
+  SOURCE_VER="$(grep -oP 'version\*{2}:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "$SOURCE_DIR/SKILL.md" 2>/dev/null || echo "0.0.0")"
   if [ "$INSTALLED_VER" != "$SOURCE_VER" ]; then
     NEED_INSTALL=true
     echo "[boot] Version mismatch: installed $INSTALLED_VER → source $SOURCE_VER"

@@ -70,7 +70,7 @@ if [ -f "${INSTALL_DIR}/SKILL.md" ]; then
         ERRORS=$((ERRORS + 1))
     fi
 
-    INSTALLED_VER="$(grep -oP 'version:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "${INSTALL_DIR}/SKILL.md" 2>/dev/null || echo "0.0.0")"
+    INSTALLED_VER="$(grep -oP 'version\*{2}:\s*\K[0-9]+\.[0-9]+\.[0-9]+' "${INSTALL_DIR}/SKILL.md" 2>/dev/null || echo "0.0.0")"
     if [ "$INSTALLED_VER" = "5.9.0" ]; then
         ok "Version ${INSTALLED_VER} confirmed"
     else
